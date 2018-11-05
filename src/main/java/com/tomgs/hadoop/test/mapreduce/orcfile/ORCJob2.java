@@ -1,4 +1,4 @@
-package com.tomgs.hadoop.test.mapreduce;
+package com.tomgs.hadoop.test.mapreduce.orcfile;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -24,8 +24,8 @@ import java.io.IOException;
  * @author tangzhongyuan
  * @create 2018-09-15 15:59
  **/
-public class ORCJob {
-    private static Logger LOG = LoggerFactory.getLogger(ORCJob.class);
+public class ORCJob2 {
+    private static Logger LOG = LoggerFactory.getLogger(ORCJob2.class);
 
     private static String structInfo = "struct<name:string,num:int>";
 
@@ -58,7 +58,7 @@ public class ORCJob {
         OrcConf.MAPRED_OUTPUT_SCHEMA.setString(conf, structInfo);
 
         Job job = Job.getInstance(conf, "orc job");
-        job.setJarByClass(ORCJob.class);
+        job.setJarByClass(ORCJob2.class);
 
         String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
         if (otherArgs.length < 2) {
