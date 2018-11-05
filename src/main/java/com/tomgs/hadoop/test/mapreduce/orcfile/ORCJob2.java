@@ -1,5 +1,6 @@
 package com.tomgs.hadoop.test.mapreduce.orcfile;
 
+import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
@@ -27,7 +28,7 @@ import java.io.IOException;
 public class ORCJob2 {
     private static Logger LOG = LoggerFactory.getLogger(ORCJob2.class);
 
-    private static String structInfo = "struct<name:string,num:int>";
+    private static String structInfo = "struct<columns:int,table:int,type:int,id:string,timestamp:string,field1:string,field2:string,field3:string>";
 
     public static class OrcWriterMapper extends Mapper<LongWritable, Text, NullWritable, OrcStruct> {
 
@@ -36,17 +37,19 @@ public class ORCJob2 {
         private OrcStruct pair = (OrcStruct) OrcStruct.createValue(schema);
 
         private final NullWritable nada = NullWritable.get();
-        private Text name = new Text();
-        private IntWritable age = new IntWritable();
 
         public void map(LongWritable key, Text value, Context output) throws IOException, InterruptedException {
-
-            if (!"".equals(value.toString())) {
-                String[] arr = value.toString().split("\t");
-                name.set(arr[0]);
-                age.set(Integer.valueOf(arr[1]));
-                pair.setFieldValue(0, name);
-                pair.setFieldValue(1, age);
+            String[] arr = value.toString().split(",");
+            for (int i = 0; i < arr.length; i++) {
+                Text strvalue = new Text();
+                IntWritable intvalue = new IntWritable();
+                if (i == 0 || i == 1 || i == 2) {
+                    intvalue.set(Integer.parseInt(arr[i]));
+                    pair.setFieldValue(i, intvalue);
+                } else {
+                    strvalue.set(arr[i]);
+                    pair.setFieldValue(i, strvalue);
+                }
                 output.write(nada, pair);
             }
 
@@ -65,9 +68,6 @@ public class ORCJob2 {
             System.err.println("Usage: orcwrite <in> [<in>...] <out>");
             System.exit(2);
         }
-
-        //String in = "hdfs://localhost:9000/user/work/warehouse/test/ddd.txt";
-        //String out = "hdfs://localhost:9000/test/orc2";
 
         job.setMapperClass(OrcWriterMapper.class);
 

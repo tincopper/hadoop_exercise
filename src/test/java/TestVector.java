@@ -2,10 +2,7 @@ import com.alibaba.fastjson.JSONObject;
 import com.tomgs.hadoop.test.util.JsonUtil;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Vector;
+import java.util.*;
 
 /**
  * @author tangzhongyuan
@@ -28,14 +25,25 @@ public class TestVector {
         System.out.println(originData.contains(insertData));
         System.out.println(insertData.contains("a"));
 
-        for (Iterator<String> iterator = originData.iterator(); iterator.hasNext();) {
+        for (ListIterator<String> iterator = originData.listIterator(); iterator.hasNext();) {
             String next = iterator.next();
             if (next.equals("abc")) {
                 iterator.remove();
+                iterator.add("123");
             }
             System.out.println(originData.contains(next));
             System.out.println(next);
         }
+
+        /*for (Iterator<String> iterator = originData.iterator(); iterator.hasNext();) {
+            String next = iterator.next(); //这里会报ConcurrentModificationException异常
+            if (next.equals("abc")) {
+                originData.add("123");
+                iterator.remove();
+            }
+            System.out.println(originData.contains(next));
+            System.out.println(next);
+        }*/
 
         /*for (String originDatum : originData) {
             if (originDatum.equals("abc")) {
