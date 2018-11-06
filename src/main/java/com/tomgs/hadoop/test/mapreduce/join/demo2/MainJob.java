@@ -62,18 +62,21 @@ public class MainJob {
             String resultKey = value.getFieldValue("table").toString();
             int intKey = Integer.parseInt(resultKey);
             int columns = Integer.parseInt(value.getFieldValue("columns").toString());
-            int type = Integer.parseInt(value.getFieldValue("type").toString());
-            String timeStamp = value.getFieldValue("timestamp").toString();
+            String timeStamp = value.getFieldValue("TS").toString();
             String id = value.getFieldValue("id").toString();
+
+            /*if (value.getFieldValue("type") != null) {
+                int type = Integer.parseInt(value.getFieldValue("type").toString());
+                map.put("type", type);
+            }*/
 
             map.put("table", intKey);
             map.put("columns", columns);
-            map.put("timestamp", timeStamp);
+            map.put("TS", timeStamp);
             map.put("id", id);
-            map.put("type", type);
 
-            for (int i = 0; i < columns; i++) {
-                String filedName = "field" + (i + 1);
+            for (int i = 0; i < columns - 4; i++) {
+                String filedName = "field" + i;
                 String filedValue = value.getFieldValue(filedName).toString();
                 map.put(filedName, filedValue);
             }

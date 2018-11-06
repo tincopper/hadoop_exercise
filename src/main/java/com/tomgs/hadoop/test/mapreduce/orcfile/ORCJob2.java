@@ -28,7 +28,7 @@ import java.io.IOException;
 public class ORCJob2 {
     private static Logger LOG = LoggerFactory.getLogger(ORCJob2.class);
 
-    private static String structInfo = "struct<columns:int,table:int,type:int,id:string,timestamp:string,field1:string,field2:string,field3:string>";
+    private static String structInfo = "struct<columns:int,table:int,id:int,TS:string,field0:string,field1:string,field2:string>";
 
     public static class OrcWriterMapper extends Mapper<LongWritable, Text, NullWritable, OrcStruct> {
 
@@ -50,8 +50,8 @@ public class ORCJob2 {
                     strvalue.set(arr[i]);
                     pair.setFieldValue(i, strvalue);
                 }
-                output.write(nada, pair);
             }
+            output.write(nada, pair);
 
         }
     }
