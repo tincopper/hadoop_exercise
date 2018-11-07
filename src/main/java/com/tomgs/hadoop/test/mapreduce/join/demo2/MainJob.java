@@ -1,5 +1,6 @@
 package com.tomgs.hadoop.test.mapreduce.join.demo2;
 
+import com.tomgs.hadoop.test.mapreduce.join.demo4.JoinOrcJob2;
 import com.tomgs.hadoop.test.util.JsonUtil;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -103,67 +104,12 @@ public class MainJob {
             Vector<String> updateData = new Vector<>();
             Vector<String> originData = new Vector<>();
 
-            for (Text value : values) {
-                String dataValue = value.toString();
-                if (dataValue.startsWith("I")) {
-                    insertData.add(dataValue.substring(1));
-                    continue;
-                }
-                if (dataValue.startsWith("U")) {
-                    updateData.add(dataValue.substring(1));
-                    continue;
-                }
-                if (dataValue.startsWith("D")) {
-                    deleteData.add(dataValue.substring(1));
-                    continue;
-                }
-                if (dataValue.startsWith("{")) {
-                    originData.add(dataValue);
-                    continue;
-                }
-            }
+            JoinOrcJob2.MultiReducer.doCacheData(values, insertData, deleteData, updateData, originData);
 
             //把新增数据插入到原始集合
             originData.addAll(insertData);
             //处理删除和更新
-            for (ListIterator<String> originIterator = originData.listIterator(); originIterator.hasNext();) {
-                String originDatum = originIterator.next();
-                Map<String, Object> originDatumMap = JsonUtil.convertJsonStrToMap(originDatum);
-                String id = String.valueOf(originDatumMap.get("id"));
-
-                //删除处理
-                for (ListIterator<String> deleteIterator = deleteData.listIterator(); deleteIterator.hasNext();) {
-                    String deleteDatum = deleteIterator.next();
-                    Map<String, Object> deleteDatumMap = JsonUtil.convertJsonStrToMap(deleteDatum);
-                    if (!deleteDatumMap.containsKey("id")) {
-                        continue;
-                    }
-                    String deleteId = String.valueOf(deleteDatumMap.get("id"));
-                    if (deleteId.equals(id)) {
-                        originIterator.remove();
-                        deleteIterator.remove();
-                        break;
-                    }
-                }
-
-                //更新处理
-                for (ListIterator<String> updateIterator = updateData.listIterator(); updateIterator.hasNext();) {
-                    String updateDatum = updateIterator.next();
-                    Map<String, Object> updateDatumMap = JsonUtil.convertJsonStrToMap(updateDatum);
-                    if (!updateDatumMap.containsKey("id")) {
-                        continue;
-                    }
-                    String updateId = String.valueOf(updateDatumMap.get("id"));
-                    if (updateId.equals(id)) {
-                        originDatumMap.putAll(updateDatumMap);
-                        String updateJson = JsonUtil.toJson(originDatumMap);
-                        originIterator.remove();
-                        originIterator.add(updateJson);
-                        break;
-                    }
-                }
-
-            }
+            JoinOrcJob2.MultiReducer.doUpdateAndDelete(deleteData, updateData, originData);
             StringBuffer sb = new StringBuffer(1024 * 100);
             for (String originDatum : originData) {
                 sb.append(originDatum).append("\n");

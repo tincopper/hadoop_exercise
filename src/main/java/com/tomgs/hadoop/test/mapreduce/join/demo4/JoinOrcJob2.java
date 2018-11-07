@@ -16,6 +16,7 @@ import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
+import org.apache.hadoop.util.GenericOptionsParser;
 import org.apache.orc.OrcFile;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.Writer;
@@ -62,73 +63,26 @@ public class JoinOrcJob2 {
             Vector<String> updateData = new Vector<>();
             Vector<String> originData = new Vector<>();
 
-            for (Text value : values) {
-                String dataValue = value.toString();
-                if (dataValue.startsWith("I")) {
-                    insertData.add(dataValue.substring(1));
-                    continue;
-                }
-                if (dataValue.startsWith("U")) {
-                    updateData.add(dataValue.substring(1));
-                    continue;
-                }
-                if (dataValue.startsWith("D")) {
-                    deleteData.add(dataValue.substring(1));
-                    continue;
-                }
-                if (dataValue.startsWith("{")) {
-                    originData.add(dataValue);
-                    continue;
-                }
-            }
-
+            doCacheData(values, insertData, deleteData, updateData, originData);
             //把新增数据插入到原始集合
             originData.addAll(insertData);
+
+            //要写入的内容
+            Map<String, Object> firstMap = JsonUtil.convertJsonStrToMap(originData.get(0));
+
+            if (insertData.size() <= 0 && deleteData.size() <= 0 && updateData.size() <= 0) {
+                context.write(NullWritable.get(), new Text("table:" + firstMap.get("table") + " no data can be convert..."));
+                return;
+            }
+
             //处理删除和更新
-            for (ListIterator<String> originIterator = originData.listIterator(); originIterator.hasNext(); ) {
-                String originDatum = originIterator.next();
-                Map<String, Object> originDatumMap = JsonUtil.convertJsonStrToMap(originDatum);
-                String id = String.valueOf(originDatumMap.get("id"));
-
-                //删除处理
-                for (ListIterator<String> deleteIterator = deleteData.listIterator(); deleteIterator.hasNext(); ) {
-                    String deleteDatum = deleteIterator.next();
-                    Map<String, Object> deleteDatumMap = JsonUtil.convertJsonStrToMap(deleteDatum);
-                    if (!deleteDatumMap.containsKey("id")) {
-                        continue;
-                    }
-                    String deleteId = String.valueOf(deleteDatumMap.get("id"));
-                    if (deleteId.equals(id)) {
-                        originIterator.remove();
-                        deleteIterator.remove();
-                        break;
-                    }
-                }
-
-                //更新处理
-                for (ListIterator<String> updateIterator = updateData.listIterator(); updateIterator.hasNext(); ) {
-                    String updateDatum = updateIterator.next();
-                    Map<String, Object> updateDatumMap = JsonUtil.convertJsonStrToMap(updateDatum);
-                    if (!updateDatumMap.containsKey("id")) {
-                        continue;
-                    }
-                    String updateId = String.valueOf(updateDatumMap.get("id"));
-                    if (updateId.equals(id)) {
-                        originDatumMap.putAll(updateDatumMap);
-                        String updateJson = JsonUtil.toJson(originDatumMap);
-                        originIterator.remove();
-                        originIterator.add(updateJson);
-                        break;
-                    }
-                }
-
+            if (deleteData.size() > 0 || updateData.size() > 0) {
+                doUpdateAndDelete(deleteData, updateData, originData);
             }
 
             Configuration conf = new Configuration();
             FileSystem.get(conf);
 
-            //要写入的内容
-            Map<String, Object> firstMap = JsonUtil.convertJsonStrToMap(originData.get(0));
             int filedColumns = (int) firstMap.get("columns");
 
             TypeDescription schema = TypeDescription.createStruct();
@@ -181,7 +135,8 @@ public class JoinOrcJob2 {
 
             }
             if (batch.size != 0) {
-                logger.info("------>\n{}", batch.toString());
+                //logger.info("------>\n{}", batch.toString());
+                logger.info("---> wirte batch size is [{}]", batch.size);
                 writer.addRowBatch(batch);
                 batch.reset();
             }
@@ -192,11 +147,81 @@ public class JoinOrcJob2 {
             context.write(NullWritable.get(), new Text("convert table:" + firstMap.get("table") +", cost time : " + (System.currentTimeMillis() - startTime) + "ms."));
         }
 
+        public static void doCacheData(Iterable<Text> values, Vector<String> insertData, Vector<String> deleteData, Vector<String> updateData, Vector<String> originData) {
+            for (Text value : values) {
+                String dataValue = value.toString();
+                if (dataValue.startsWith("I")) {
+                    insertData.add(dataValue.substring(1));
+                    continue;
+                }
+                if (dataValue.startsWith("U")) {
+                    updateData.add(dataValue.substring(1));
+                    continue;
+                }
+                if (dataValue.startsWith("D")) {
+                    deleteData.add(dataValue.substring(1));
+                    continue;
+                }
+                if (dataValue.startsWith("{")) {
+                    originData.add(dataValue);
+                    continue;
+                }
+            }
+        }
+
+        public static void doUpdateAndDelete(Vector<String> deleteData, Vector<String> updateData, Vector<String> originData) {
+            for (ListIterator<String> originIterator = originData.listIterator(); originIterator.hasNext(); ) {
+                String originDatum = originIterator.next();
+                Map<String, Object> originDatumMap = JsonUtil.convertJsonStrToMap(originDatum);
+                String id = String.valueOf(originDatumMap.get("id"));
+
+                //删除处理
+                for (ListIterator<String> deleteIterator = deleteData.listIterator(); deleteIterator.hasNext(); ) {
+                    String deleteDatum = deleteIterator.next();
+                    Map<String, Object> deleteDatumMap = JsonUtil.convertJsonStrToMap(deleteDatum);
+                    if (!deleteDatumMap.containsKey("id")) {
+                        continue;
+                    }
+                    String deleteId = String.valueOf(deleteDatumMap.get("id"));
+                    if (deleteId.equals(id)) {
+                        originIterator.remove();
+                        deleteIterator.remove();
+                        break;
+                    }
+                }
+
+                //更新处理
+                for (ListIterator<String> updateIterator = updateData.listIterator(); updateIterator.hasNext(); ) {
+                    String updateDatum = updateIterator.next();
+                    Map<String, Object> updateDatumMap = JsonUtil.convertJsonStrToMap(updateDatum);
+                    if (!updateDatumMap.containsKey("id")) {
+                        continue;
+                    }
+                    String updateId = String.valueOf(updateDatumMap.get("id"));
+                    if (updateId.equals(id)) {
+                        originDatumMap.putAll(updateDatumMap);
+                        String updateJson = JsonUtil.toJson(originDatumMap);
+                        originIterator.remove();
+                        originIterator.add(updateJson);
+                        break;
+                    }
+                }
+
+            }
+        }
+
     }
 
     public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
+
+        if (args.length < 4) {
+            throw new IllegalArgumentException("输入参数有误...");
+        }
+
         Configuration conf = new Configuration();
-        conf.set("orc_output_path", "E:\\workspace\\idea\\hadoop_exercise\\output\\joinorcjob2\\");
+        String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
+
+        conf.set("orc_output_path", otherArgs[3]);
 
         Job job = Job.getInstance(conf, "demo4-join");
         job.setJarByClass(JoinOrcJob2.class);
@@ -208,10 +233,10 @@ public class JoinOrcJob2 {
         job.setOutputKeyClass(NullWritable.class);
         job.setOutputValueClass(Text.class);
 
-        MultipleInputs.addInputPath(job, new Path(args[0]), TextInputFormat.class, MainJob.AppendMapper.class);
-        MultipleInputs.addInputPath(job, new Path(args[1]), OrcInputFormat.class, MainJob.OrcFileReadMapper.class);
+        MultipleInputs.addInputPath(job, new Path(otherArgs[0]), TextInputFormat.class, MainJob.AppendMapper.class);
+        MultipleInputs.addInputPath(job, new Path(otherArgs[1]), OrcInputFormat.class, MainJob.OrcFileReadMapper.class);
 
-        Path outPath = new Path(args[2]);
+        Path outPath = new Path(otherArgs[2]);
         FileSystem fs = FileSystem.get(conf);
         if (fs.exists(outPath)) {
             fs.delete(outPath, true);

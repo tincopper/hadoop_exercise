@@ -52,7 +52,6 @@ public class ORCJob2 {
                 }
             }
             output.write(nada, pair);
-
         }
     }
 
