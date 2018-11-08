@@ -1,8 +1,8 @@
 package com.tomgs.hadoop.test.mapreduce.join.demo5;
 
-import com.tomgs.hadoop.test.mapreduce.customer.CustomOrcNewOutputFormat;
 import com.tomgs.hadoop.test.mapreduce.customer.OrcCustomerOutputFormat;
 import com.tomgs.hadoop.test.mapreduce.join.demo2.MainJob;
+import com.tomgs.hadoop.test.mapreduce.join.demo4.JoinOrcJob2;
 import com.tomgs.hadoop.test.util.JsonUtil;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
@@ -26,7 +26,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.ListIterator;
 import java.util.Map;
 import java.util.Vector;
 
@@ -64,7 +63,7 @@ public class JoinOrcJob5 {
             Vector<String> updateData = new Vector<>();
             Vector<String> originData = new Vector<>();
 
-            doCacheData(values, insertData, deleteData, updateData, originData);
+            JoinOrcJob2.MultiReducer.doCacheData(values, insertData, deleteData, updateData, originData);
             //把新增数据插入到原始集合
             originData.addAll(insertData);
 
@@ -73,7 +72,7 @@ public class JoinOrcJob5 {
 
             //处理删除和更新
             if (deleteData.size() > 0 || updateData.size() > 0) {
-                doUpdateAndDelete(deleteData, updateData, originData);
+                JoinOrcJob2.MultiReducer.doUpdateAndDelete(deleteData, updateData, originData);
             }
 
             int filedColumns = (int) firstMap.get("columns");
@@ -108,10 +107,6 @@ public class JoinOrcJob5 {
                 tableWritable.set(table);
                 pair.setFieldValue(2, tableWritable);
 
-                //IntWritable typeWritable = new IntWritable();
-                //typeWritable.set(type);
-                //pair.setFieldValue(2, typeWritable);
-
                 Text timestampWritable = new Text();
                 timestampWritable.set(timestamp);
                 pair.setFieldValue(3, timestampWritable);
@@ -123,73 +118,9 @@ public class JoinOrcJob5 {
                     pair.setFieldValue(i + 4, fieldWritable);
                 }
                 String resultPath = key.toString() + "/table_" + key.toString();
-                //context.write(NullWritable.get(), new Text("convert table:" + firstMap.get("table") +", cost time : " + (System.currentTimeMillis() - startTime) + "ms."));
                 multipleOutputs.write(NullWritable.get(), pair, resultPath);
             }
 
-        }
-
-        public static void doCacheData(Iterable<Text> values, Vector<String> insertData, Vector<String> deleteData, Vector<String> updateData, Vector<String> originData) {
-            for (Text value : values) {
-                String dataValue = value.toString();
-                if (dataValue.startsWith("I")) {
-                    insertData.add(dataValue.substring(1));
-                    continue;
-                }
-                if (dataValue.startsWith("U")) {
-                    updateData.add(dataValue.substring(1));
-                    continue;
-                }
-                if (dataValue.startsWith("D")) {
-                    deleteData.add(dataValue.substring(1));
-                    continue;
-                }
-                if (dataValue.startsWith("{")) {
-                    originData.add(dataValue);
-                    continue;
-                }
-            }
-        }
-
-        public static void doUpdateAndDelete(Vector<String> deleteData, Vector<String> updateData, Vector<String> originData) {
-            for (ListIterator<String> originIterator = originData.listIterator(); originIterator.hasNext(); ) {
-                String originDatum = originIterator.next();
-                Map<String, Object> originDatumMap = JsonUtil.convertJsonStrToMap(originDatum);
-                String id = String.valueOf(originDatumMap.get("id"));
-
-                //删除处理
-                for (ListIterator<String> deleteIterator = deleteData.listIterator(); deleteIterator.hasNext(); ) {
-                    String deleteDatum = deleteIterator.next();
-                    Map<String, Object> deleteDatumMap = JsonUtil.convertJsonStrToMap(deleteDatum);
-                    if (!deleteDatumMap.containsKey("id")) {
-                        continue;
-                    }
-                    String deleteId = String.valueOf(deleteDatumMap.get("id"));
-                    if (deleteId.equals(id)) {
-                        originIterator.remove();
-                        deleteIterator.remove();
-                        break;
-                    }
-                }
-
-                //更新处理
-                for (ListIterator<String> updateIterator = updateData.listIterator(); updateIterator.hasNext(); ) {
-                    String updateDatum = updateIterator.next();
-                    Map<String, Object> updateDatumMap = JsonUtil.convertJsonStrToMap(updateDatum);
-                    if (!updateDatumMap.containsKey("id")) {
-                        continue;
-                    }
-                    String updateId = String.valueOf(updateDatumMap.get("id"));
-                    if (updateId.equals(id)) {
-                        originDatumMap.putAll(updateDatumMap);
-                        String updateJson = JsonUtil.toJson(originDatumMap);
-                        originIterator.remove();
-                        originIterator.add(updateJson);
-                        break;
-                    }
-                }
-
-            }
         }
 
     }
