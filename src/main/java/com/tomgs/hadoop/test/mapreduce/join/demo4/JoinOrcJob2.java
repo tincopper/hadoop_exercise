@@ -210,6 +210,8 @@ public class JoinOrcJob2 {
                         updateDatumMap.remove("table");
                         updateDatumMap.remove("type");
 
+                        originDatumMap.putAll(updateDatumMap);
+
                         String updateJson = JsonUtil.toJson(originDatumMap);
 
                         originIterator.remove();
