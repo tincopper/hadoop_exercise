@@ -25,6 +25,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.HashMap;
 import java.util.ListIterator;
 import java.util.Map;
 import java.util.Vector;
@@ -186,6 +187,7 @@ public class JoinOrcJob2 {
                     if (deleteId.equals(id)) {
                         originIterator.remove();
                         deleteIterator.remove();
+                        originDatumMap = null;
                         break;
                     }
                 }
@@ -199,8 +201,17 @@ public class JoinOrcJob2 {
                     }
                     String updateId = String.valueOf(updateDatumMap.get("id"));
                     if (updateId.equals(id)) {
-                        originDatumMap.putAll(updateDatumMap);
+                        //说明已经删除
+                        if (originDatumMap == null) {
+                            break;
+                        }
+                        //删除多余字段
+                        updateDatumMap.remove("columns");
+                        updateDatumMap.remove("table");
+                        updateDatumMap.remove("type");
+
                         String updateJson = JsonUtil.toJson(originDatumMap);
+
                         originIterator.remove();
                         originIterator.add(updateJson);
                         break;

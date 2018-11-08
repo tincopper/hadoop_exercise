@@ -64,6 +64,12 @@ public class JoinOrcJob5 {
             Vector<String> originData = new Vector<>();
 
             JoinOrcJob2.MultiReducer.doCacheData(values, insertData, deleteData, updateData, originData);
+
+            logger.info("inser data nums: {}", insertData.size());
+            logger.info("delete data nums: {}", deleteData.size());
+            logger.info("update data nums: {}", updateData.size());
+            logger.info("origin data nums:{},", originData.size());
+
             //把新增数据插入到原始集合
             originData.addAll(insertData);
 
@@ -90,10 +96,10 @@ public class JoinOrcJob5 {
             for (String originDatum : originData) {
 
                 Map<String, Object> map = JsonUtil.convertJsonStrToMap(originDatum);
-                int id = Integer.parseInt((String) map.get("id"));
+                int id = Integer.parseInt("" + map.get("id"));
                 int columns = (int) map.get("columns");
                 int table = (int) map.get("table");
-                String timestamp = (String) map.get("TS");
+                String timestamp = "" + map.get("TS");
 
                 IntWritable idWritable = new IntWritable();
                 idWritable.set(id);
@@ -110,14 +116,20 @@ public class JoinOrcJob5 {
                 Text timestampWritable = new Text();
                 timestampWritable.set(timestamp);
                 pair.setFieldValue(3, timestampWritable);
-
-                for (int i = 0; i < map.size() - 4; i++) {
-                    Text fieldWritable = new Text();
-                    String filedValue = (String) map.get("field" + i);
-                    fieldWritable.set(filedValue == null ? "" : filedValue);
-                    pair.setFieldValue(i + 4, fieldWritable);
+                int cols = map.size() - 4;
+                for (int i = 0; i < cols; i++) {
+                    try {
+                        Text fieldWritable = new Text();
+                        String filedValue = (String) map.get("field" + i);
+                        fieldWritable.set(filedValue == null ? "" : filedValue);
+                        pair.setFieldValue(i + 4, fieldWritable);
+                    } catch (Exception e) {
+                        logger.error("tableId:{},rowId:{} has exception...", table, id, e);
+                        throw e;
+                    }
                 }
-                String resultPath = key.toString() + "/table_" + key.toString();
+                //String resultPath = key.toString() + "/table_" + key.toString();
+                String resultPath = "table_" + key.toString();
                 multipleOutputs.write(NullWritable.get(), pair, resultPath);
             }
 
@@ -127,7 +139,7 @@ public class JoinOrcJob5 {
 
     public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
 
-        if (args.length < 4) {
+        if (args.length < 3) {
             throw new IllegalArgumentException("输入参数有误...");
         }
 
