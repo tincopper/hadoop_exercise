@@ -1,12 +1,13 @@
 package com.tomgs.hadoop.test.mapreduce.join.demo7;
 
-import com.tomgs.hadoop.test.mapreduce.customer.OrcCustomerOutputFormat;
 import com.tomgs.hadoop.test.mapreduce.join.demo4.JoinOrcJob2;
 import com.tomgs.hadoop.test.util.JsonUtil;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.io.*;
+import org.apache.hadoop.io.LongWritable;
+import org.apache.hadoop.io.NullWritable;
+import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -17,14 +18,15 @@ import org.apache.hadoop.mapreduce.lib.output.LazyOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
-import org.apache.orc.TypeDescription;
 import org.apache.orc.mapred.OrcStruct;
 import org.apache.orc.mapreduce.OrcInputFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Vector;
 
 /**
  * 
@@ -91,110 +93,10 @@ public class JoinOrcJob7 {
             }
 
             String resultJson = JsonUtil.toJson(map);
-            logger.info("resultJson: {}", resultJson);
+            //logger.info("resultJson: {}", resultJson);
 
             context.write(new Text(table + "_" + id), new Text(resultJson));
         }
-    }
-
-    public static class MultiReducer extends Reducer<Text, Text, NullWritable, OrcStruct> {
-
-        private MultipleOutputs<NullWritable, OrcStruct> multipleOutputs;
-
-        @Override
-        protected void setup(Context context)
-                throws IOException, InterruptedException {
-            this.multipleOutputs = new MultipleOutputs<>(context);
-        }
-
-        @Override
-        protected void cleanup(Context context) throws IOException, InterruptedException {
-            multipleOutputs.close();
-        }
-
-        @Override
-        protected void reduce(Text key, Iterable<Text> values, Context context)
-                throws IOException, InterruptedException {
-
-            if (values == null) {
-                return;
-            }
-            Vector<String> insertData = new Vector<>();
-            Vector<String> deleteData = new Vector<>();
-            Vector<String> updateData = new Vector<>();
-            Vector<String> originData = new Vector<>();
-
-            JoinOrcJob2.MultiReducer.doCacheData(values, insertData, deleteData, updateData, originData);
-            //把新增数据插入到原始集合
-            originData.addAll(insertData);
-
-            logger.info("inser data nums: {}", insertData.size());
-            logger.info("delete data nums: {}", deleteData.size());
-            logger.info("update data nums: {}", updateData.size());
-            logger.info("origin data nums:{},", originData.size());
-
-            //要写入的内容
-            Map<String, Object> firstMap = JsonUtil.convertJsonStrToMap(originData.get(0));
-
-            //处理删除和更新
-            if (deleteData.size() > 0 || updateData.size() > 0) {
-                JoinOrcJob2.MultiReducer.doUpdateAndDelete(deleteData, updateData, originData);
-            }
-
-            int filedColumns = (int) firstMap.get("columns");
-
-            TypeDescription schema = TypeDescription.createStruct();
-            schema.addField("id", TypeDescription.createInt());
-            schema.addField("columns", TypeDescription.createInt());
-            schema.addField("table", TypeDescription.createInt());
-            schema.addField("TS", TypeDescription.createString());
-            for (int i = 0; i < filedColumns - 4; i++) {
-                schema.addField("field" + i, TypeDescription.createString());
-            }
-            OrcStruct pair = (OrcStruct) OrcStruct.createValue(schema);
-
-            for (String originDatum : originData) {
-
-                Map<String, Object> map = JsonUtil.convertJsonStrToMap(originDatum);
-                int id = Integer.parseInt("" + map.get("id"));
-                int columns = (int) map.get("columns");
-                int table = (int) map.get("table");
-                String timestamp = "" + map.get("TS");
-
-                IntWritable idWritable = new IntWritable();
-                idWritable.set(id);
-                pair.setFieldValue(0, idWritable);
-
-                IntWritable columnsWritable = new IntWritable();
-                columnsWritable.set(columns);
-                pair.setFieldValue(1, columnsWritable);
-
-                IntWritable tableWritable = new IntWritable();
-                tableWritable.set(table);
-                pair.setFieldValue(2, tableWritable);
-
-                Text timestampWritable = new Text();
-                timestampWritable.set(timestamp);
-                pair.setFieldValue(3, timestampWritable);
-                int cols = map.size() - 4;
-                for (int i = 0; i < cols; i++) {
-                    try {
-                        Text fieldWritable = new Text();
-                        String filedValue = (String) map.get("field" + i);
-                        fieldWritable.set(filedValue == null ? "" : filedValue);
-                        pair.setFieldValue(i + 4, fieldWritable);
-                    } catch (Exception e) {
-                        logger.error("tableId:{},rowId:{} has exception...", table, id, e);
-                        throw e;
-                    }
-                }
-                //String resultPath = key.toString() + "/table_" + key.toString();
-                String resultPath = "table_" + key.toString();
-                multipleOutputs.write(NullWritable.get(), pair, resultPath);
-            }
-
-        }
-
     }
 
     public static class MultiReducer2 extends Reducer<Text, Text, NullWritable, Text> {
@@ -232,9 +134,6 @@ public class JoinOrcJob7 {
             logger.info("delete data nums: {}", deleteData.size());
             logger.info("update data nums: {}", updateData.size());
             logger.info("origin data nums:{},", originData.size());
-
-            //要写入的内容
-            Map<String, Object> firstMap = JsonUtil.convertJsonStrToMap(originData.get(0));
 
             //处理删除和更新
             if (deleteData.size() > 0 || updateData.size() > 0) {

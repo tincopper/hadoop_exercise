@@ -83,7 +83,7 @@ public class MainJob {
             }
 
             String resultJson = JsonUtil.toJson(map);
-            logger.info("resultJson: {}", resultJson);
+            //logger.info("resultJson: {}", resultJson);
 
             context.write(new IntWritable(intKey), new Text(resultJson));
         }

@@ -24,7 +24,7 @@ public class ReaderExample {
         orcPath = "E:\\workspace\\idea\\hadoop_exercise\\input\\join\\table2\\demo9.orc";
         orcPath = "E:\\workspace\\idea\\hadoop_exercise\\output\\join_demo_11\\part-m-00000.orc";
         orcPath = "E:\\workspace\\idea\\hadoop_exercise\\input\\join\\table\\table0.orc";
-        orcPath = "E:\\workspace\\idea\\hadoop_exercise\\output\\joinorcjob8\\table_1-r-00000.orc";
+        orcPath = "E:\\workspace\\idea\\hadoop_exercise\\output\\joinorcjob8\\table_0-r-00000.orc";
 
         // 使用 OrcFile 创建 Reader
         Reader reader = OrcFile.createReader(new Path(orcPath), OrcFile.readerOptions(conf));

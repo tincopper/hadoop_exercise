@@ -5,7 +5,6 @@ import com.tomgs.hadoop.test.mapreduce.join.demo7.JoinOrcJob7;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
@@ -89,7 +88,6 @@ public class JoinOrcJob8 {
             for (int i = 0; i < filedColumns - 4; i++) {
                 schema.addField("field" + i, TypeDescription.createString());
             }
-            VectorizedRowBatch batch = schema.createRowBatch();
             OrcStruct pair = (OrcStruct) OrcStruct.createValue(schema);
 
             for (Text value : values) {
