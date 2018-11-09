@@ -15,6 +15,7 @@ import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.LazyOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
+import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.mapred.OrcStruct;
@@ -48,17 +49,17 @@ public class JoinOrcJob7 {
             if ((int)result.get("type") == 0) { //插入
                 String data = result.get("I").toString();
                 Map<String, Object> insertMap = JsonUtil.convertJsonStrToMap(data);
-                resultKey = tableId + ":" + insertMap.get("id");
+                resultKey = tableId + "_" + insertMap.get("id");
                 resultValue = "I" + data;
             } else if ((int)result.get("type") == 1) {
                 String data = result.get("U").toString();
-                Map<String, Object> insertMap = JsonUtil.convertJsonStrToMap(data);
-                resultKey = tableId + ":" + insertMap.get("id");
+                Map<String, Object> updateMap = JsonUtil.convertJsonStrToMap(data);
+                resultKey = tableId + "_" + updateMap.get("id");
                 resultValue = "U" + data;
             } else if ((int)result.get("type") == 2) {
                 String data = result.get("D").toString();
-                Map<String, Object> insertMap = JsonUtil.convertJsonStrToMap(data);
-                resultKey = tableId + ":" + insertMap.get("id");
+                Map<String, Object> deleteMap = JsonUtil.convertJsonStrToMap(data);
+                resultKey = tableId + "_" + deleteMap.get("id");
                 resultValue = "D" + data;
             }
             context.write(new Text(resultKey), new Text(resultValue));
@@ -92,7 +93,7 @@ public class JoinOrcJob7 {
             String resultJson = JsonUtil.toJson(map);
             logger.info("resultJson: {}", resultJson);
 
-            context.write(new Text(table + ":" + id), new Text(resultJson));
+            context.write(new Text(table + "_" + id), new Text(resultJson));
         }
     }
 
@@ -188,8 +189,75 @@ public class JoinOrcJob7 {
                     }
                 }
                 //String resultPath = key.toString() + "/table_" + key.toString();
-                String resultPath = "table_" + key.toString().split(":")[0];
+                String resultPath = "table_" + key.toString();
                 multipleOutputs.write(NullWritable.get(), pair, resultPath);
+            }
+
+        }
+
+    }
+
+    public static class MultiReducer2 extends Reducer<Text, Text, NullWritable, Text> {
+
+        private MultipleOutputs<NullWritable, Text> multipleOutputs;
+
+        @Override
+        protected void setup(Context context)
+                throws IOException, InterruptedException {
+            this.multipleOutputs = new MultipleOutputs<>(context);
+        }
+
+        @Override
+        protected void cleanup(Context context) throws IOException, InterruptedException {
+            multipleOutputs.close();
+        }
+
+        @Override
+        protected void reduce(Text key, Iterable<Text> values, Context context)
+                throws IOException, InterruptedException {
+
+            if (values == null) {
+                return;
+            }
+            Vector<String> insertData = new Vector<>();
+            Vector<String> deleteData = new Vector<>();
+            Vector<String> updateData = new Vector<>();
+            Vector<String> originData = new Vector<>();
+
+            JoinOrcJob2.MultiReducer.doCacheData(values, insertData, deleteData, updateData, originData);
+            //把新增数据插入到原始集合
+            originData.addAll(insertData);
+
+            logger.info("inser data nums: {}", insertData.size());
+            logger.info("delete data nums: {}", deleteData.size());
+            logger.info("update data nums: {}", updateData.size());
+            logger.info("origin data nums:{},", originData.size());
+
+            //要写入的内容
+            Map<String, Object> firstMap = JsonUtil.convertJsonStrToMap(originData.get(0));
+
+            //处理删除和更新
+            if (deleteData.size() > 0 || updateData.size() > 0) {
+                JoinOrcJob2.MultiReducer.doUpdateAndDelete(deleteData, updateData, originData);
+            }
+
+            for (String originDatum : originData) {
+
+                Map<String, Object> map = JsonUtil.convertJsonStrToMap(originDatum);
+
+                StringBuffer sb = new StringBuffer();
+                sb.append(map.get("table")).append(",")
+                        .append(map.get("columns")).append(",")
+                        .append(map.get("TS")).append(",")
+                        .append(map.get("id")).append(",");
+                int cols = map.size() - 4;
+                for (int i = 0; i < cols - 1; i++) {
+                    sb.append(map.get("field" + i)).append(",");
+                }
+                sb.append(map.get("field" + (cols - 1)));
+
+                String resultPath = "table_" + key.toString().split("_")[0];
+                multipleOutputs.write(NullWritable.get(), new Text(sb.toString()), resultPath);
             }
 
         }
@@ -208,12 +276,12 @@ public class JoinOrcJob7 {
         Job job = Job.getInstance(conf, "demo7-join");
         job.setJarByClass(JoinOrcJob7.class);
 
-        job.setMapOutputKeyClass(IntWritable.class);
+        job.setMapOutputKeyClass(Text.class);
         job.setMapOutputValueClass(Text.class);
 
-        job.setReducerClass(MultiReducer.class);
+        job.setReducerClass(MultiReducer2.class);
         job.setOutputKeyClass(NullWritable.class);
-        job.setOutputValueClass(Writable.class);
+        job.setOutputValueClass(Text.class);
 
         MultipleInputs.addInputPath(job, new Path(otherArgs[0]), TextInputFormat.class, AppendMapper.class);
         MultipleInputs.addInputPath(job, new Path(otherArgs[1]), OrcInputFormat.class, OrcFileReadMapper.class);
@@ -223,8 +291,8 @@ public class JoinOrcJob7 {
         if (fs.exists(outPath)) {
             fs.delete(outPath, true);
         }
-        job.setOutputFormatClass(OrcCustomerOutputFormat.class);
-        LazyOutputFormat.setOutputFormatClass(job, OrcCustomerOutputFormat.class);
+        job.setOutputFormatClass(TextOutputFormat.class);
+        LazyOutputFormat.setOutputFormatClass(job, TextOutputFormat.class);
         FileOutputFormat.setOutputPath(job, outPath);
 
         long startTime = System.currentTimeMillis();

@@ -49,11 +49,10 @@ public class OrcCustomMapreduceRecordWriter<V extends Writable>
         if (writer == null) {
             writer = OrcFile.createWriter(fiilename,
                     OrcFile.writerOptions(fileSystem.getConf()).setSchema(((OrcStruct)value).getSchema()));
+            schema = writer.getSchema();
+            this.batch = schema.createRowBatch();
+            isTopStruct = schema.getCategory() == TypeDescription.Category.STRUCT;
         }
-
-        schema = writer.getSchema();
-        this.batch = schema.createRowBatch();
-        isTopStruct = schema.getCategory() == TypeDescription.Category.STRUCT;
 
         // if the batch is full, write it out.
         if (batch.size == batch.getMaxSize()) {

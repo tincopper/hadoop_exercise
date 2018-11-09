@@ -15,6 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.net.URI;
 import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -28,12 +29,14 @@ public class RandomGenerateData extends Thread {
 
     private static Logger logger = LoggerFactory.getLogger(RandomGenerateData.class);
     private static String opType = "IUD";
+    private final FileSystem fileSystem;
     private int rowNums = 10;
     private final String outPath;
     private int index = 0;
     private int[] tableNums;
 
-    public RandomGenerateData(int i, int[] tableNums, int rowNums, String outPath) {
+    public RandomGenerateData(FileSystem fileSystem, int i, int[] tableNums, int rowNums, String outPath) {
+        this.fileSystem = fileSystem;
         this.index = i;
         this.tableNums = tableNums;
         this.rowNums = rowNums;
@@ -45,8 +48,8 @@ public class RandomGenerateData extends Thread {
      * @param cols
      * @param records
      */
-    static void generateData(int cols, int records, int tableId, String outpath) throws IOException {
-        Configuration conf = new Configuration();
+     void generateData(int cols, int records, int tableId, String outpath) throws IOException {
+        //Configuration conf = new Configuration();
 
         //定义输出数据结构
         TypeDescription schema = TypeDescription.createStruct();
@@ -58,20 +61,8 @@ public class RandomGenerateData extends Thread {
             schema.addField("field" + i, TypeDescription.createString());
         }
 
-        Writer writer;
-        try {
-            Path outPath = new Path(outpath);
-            FileSystem fs = FileSystem.get(conf);
-            if (fs.exists(outPath)) {
-                fs.delete(outPath, true);
-            }
-
-            writer = OrcFile.createWriter(outPath, OrcFile.writerOptions(conf).setSchema(schema));
-        } catch(Exception e) {
-            System.out.println(e);
-            return;
-        }
-
+        Writer writer = OrcFile.createWriter(new Path(outpath), OrcFile.writerOptions(fileSystem.getConf())
+                .fileSystem(fileSystem).setSchema(schema));
         VectorizedRowBatch batch = schema.createRowBatch();
 
         //生成数据
@@ -114,9 +105,9 @@ public class RandomGenerateData extends Thread {
      * @param cols
      * @param rows
      */
-    static void generateOp(int cols, int rows, int tableId, FSDataOutputStream fsDataOutputStream) {
+    void generateOp(int cols, int rows, int tableId, FSDataOutputStream fsDataOutputStream) {
         Random random = new Random();
-        for (int i = 0; i < cols / 2; i++) { //操作列数的一半的数量
+        for (int i = 0; i < rows / 2; i++) { //操作行数的一半的数量
 
             JSONObject json = new JSONObject();
             int type = random.nextInt(opType.length());
@@ -172,12 +163,11 @@ public class RandomGenerateData extends Thread {
     @Override
     public void run() {
 
-        //生成全量
         try {
+            //生成全量
             generateData(this.tableNums[index], rowNums, index, outPath + "/table/table" + index + ".orc");
-            System.out.println("写table" + index + "成功...");
+            System.out.println("写table" + index + ".orc成功...");
             //生成增量
-            FileSystem fileSystem = FileSystem.get(new Configuration());
             FSDataOutputStream fsDataOutputStream = fileSystem.create(new Path(outPath + "/inc/inc" + index + ".json"));
             generateOp(tableNums[this.index], rowNums, this.index, fsDataOutputStream);
             System.out.println("写table" + index + " /inc" + index + ".json" + "成功...");
@@ -219,10 +209,32 @@ public class RandomGenerateData extends Thread {
 
         //设置输出目录
         final String outPath = args[2];
+        System.out.println("文件输出目录:" + outPath);
 
-        ExecutorService executorService = Executors.newFixedThreadPool(Integer.parseInt(args[3]));
+        final String threads = args[3];
+        System.out.println("线程数:" + threads);
+
+        //FileSystem fileSystem = FileSystem.get(new URI(args[3]), configuration);
+        //FileSystem fileSystem = FileSystem.get(configuration);
+
+        String HDFS_ROOT_PATH = args[4];
+        String hdfsUser = args[5];
+        //configuration.set("fs.defaultFS", "hdfs://dwhdponline");
+        FileSystem fileSystem = null;
+        Configuration configuration = new Configuration();
+        if ("localhost".equalsIgnoreCase(HDFS_ROOT_PATH)) {
+            fileSystem = FileSystem.get(configuration);
+        } else {
+            configuration.set("fs.hdfs.impl", "org.apache.hadoop.hdfs.DistributedFileSystem");
+            fileSystem = FileSystem.get(new URI(HDFS_ROOT_PATH), configuration, hdfsUser);
+        }
+
+        Configuration conf = fileSystem.getConf();
+        System.out.println(conf == configuration);
+
+        ExecutorService executorService = Executors.newFixedThreadPool(Integer.parseInt(threads));
         for (int i = 0; i < tableNums.length; i++) {
-            executorService.submit(new RandomGenerateData(i, tableNums, tableRowNums, outPath));
+            executorService.submit(new RandomGenerateData(fileSystem, i, tableNums, tableRowNums, outPath));
         }
         executorService.shutdown();
     }
