@@ -128,6 +128,7 @@ public class JoinOrcJob8 {
         job1.setReducerClass(JoinOrcJob7.MultiReducer2.class);
         job1.setOutputKeyClass(NullWritable.class);
         job1.setOutputValueClass(Text.class);
+        job1.setNumReduceTasks(Integer.parseInt(otherArgs[4] == null ? "64" : otherArgs[4]));
 
         MultipleInputs.addInputPath(job1, new Path(otherArgs[0]), TextInputFormat.class, JoinOrcJob7.AppendMapper.class);
         MultipleInputs.addInputPath(job1, new Path(otherArgs[1]), OrcInputFormat.class, JoinOrcJob7.OrcFileReadMapper.class);
@@ -154,7 +155,7 @@ public class JoinOrcJob8 {
         job2.setMapOutputValueClass(Text.class);
 
         job2.setInputFormatClass(TextInputFormat.class);
-        //job2.setNumReduceTasks(0);
+        job2.setNumReduceTasks(Integer.parseInt(otherArgs[4] == null ? "64" : otherArgs[4]));
         FileInputFormat.addInputPath(job2, outPath);
 
         job2.setReducerClass(OrcWriterReducer.class);
@@ -188,11 +189,13 @@ public class JoinOrcJob8 {
         Thread thread = new Thread(jobCtrl);
         thread.start();
         while (true) {
+            long startTime = System.currentTimeMillis();
             if (jobCtrl.allFinished()) {
-                System.out.println(jobCtrl.getSuccessfulJobList());
+                logger.info(jobCtrl.getSuccessfulJobList().toString());
                 jobCtrl.stop();
                 break;
             }
+            logger.info("csot time : {}", System.currentTimeMillis() - startTime);
         }
     }
 }

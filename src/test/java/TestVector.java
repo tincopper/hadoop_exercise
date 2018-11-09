@@ -80,4 +80,13 @@ public class TestVector {
 
         System.out.println(map);
     }
+
+    @Test
+    public void test4() {
+        Random random = new Random();
+        int i = random.nextInt(100);
+        System.out.println(i);
+        int i1 = random.nextInt(200);
+        System.out.println(i1);
+    }
 }

@@ -107,7 +107,13 @@ public class RandomGenerateData extends Thread {
      */
     void generateOp(int cols, int rows, int tableId, FSDataOutputStream fsDataOutputStream) {
         Random random = new Random();
-        for (int i = 0; i < rows / 2; i++) { //操作行数的一半的数量
+        int tmpRow = 50;//至少50条
+        if (rows < 10050) {
+            tmpRow += rows / 2;
+        } else {
+            tmpRow += random.nextInt(10000);
+        }
+        for (int i = 0; i < tmpRow; i++) { //操作行数的一半的数量
 
             JSONObject json = new JSONObject();
             int type = random.nextInt(opType.length());
@@ -127,7 +133,7 @@ public class RandomGenerateData extends Thread {
                 json.put("id", random.nextInt(rows));
                 //随机修改几列
                 for (int i1 = 0; i1 < random.nextInt(cols - 4); i1++) {
-                    json.put("field" + i1, "field00" + i1);
+                    json.put("field" + i1, "field0000" + i1);
                 }
             }
 
@@ -145,7 +151,7 @@ public class RandomGenerateData extends Thread {
                 item.put("TS", currentTimeMillis);
                 item.put("type", type);
                 item.put("table", tableId);
-                item.put(String.format("%c", opType.charAt(type)), json);
+                item.put("data", json);
                 fsDataOutputStream.writeBytes(item.toString());
                 fsDataOutputStream.writeBytes("\n");
             } catch(Exception e) {
@@ -203,8 +209,7 @@ public class RandomGenerateData extends Thread {
         //设置每个表的列数
         Random random = new Random();
         for (int i = 0; i < tableNum - 1; ++ i) {
-            //生成5-35列的数据,保证除了4个必须字段外至少还有一个field字段
-            tableNums[i] = random.nextInt(30) + 5;
+            tableNums[i] = random.nextInt(100) + 15;
         }
 
         //设置输出目录

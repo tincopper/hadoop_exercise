@@ -46,22 +46,17 @@ public class JoinOrcJob7 {
             Map<String, Object> result = JsonUtil.convertJsonStrToMap(line);
             int tableId = (int) result.get("table");
 
+            String data = result.get("data").toString();
+            Map<String, Object> dataMap = JsonUtil.convertJsonStrToMap(data);
+
             String resultValue = "";
-            String resultKey = "";
+            String resultKey = tableId + "_" + dataMap.get("id");
+
             if ((int)result.get("type") == 0) { //插入
-                String data = result.get("I").toString();
-                Map<String, Object> insertMap = JsonUtil.convertJsonStrToMap(data);
-                resultKey = tableId + "_" + insertMap.get("id");
                 resultValue = "I" + data;
             } else if ((int)result.get("type") == 1) {
-                String data = result.get("U").toString();
-                Map<String, Object> updateMap = JsonUtil.convertJsonStrToMap(data);
-                resultKey = tableId + "_" + updateMap.get("id");
                 resultValue = "U" + data;
             } else if ((int)result.get("type") == 2) {
-                String data = result.get("D").toString();
-                Map<String, Object> deleteMap = JsonUtil.convertJsonStrToMap(data);
-                resultKey = tableId + "_" + deleteMap.get("id");
                 resultValue = "D" + data;
             }
             context.write(new Text(resultKey), new Text(resultValue));
