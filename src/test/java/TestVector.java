@@ -2,7 +2,13 @@ import com.alibaba.fastjson.JSONObject;
 import com.tomgs.hadoop.test.util.JsonUtil;
 import org.junit.Test;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author tangzhongyuan
@@ -88,5 +94,43 @@ public class TestVector {
         System.out.println(i);
         int i1 = random.nextInt(200);
         System.out.println(i1);
+    }
+
+    @Test
+    public void test5() throws InterruptedException {
+        final ExecutorService executorService = Executors.newFixedThreadPool(2);
+        final CountDownLatch cdl = new CountDownLatch(2);
+        Thread t1 = new Thread(){
+            @Override
+            public void run() {
+                System.out.println("====================");
+                cdl.countDown();
+            }
+        };
+        Thread t11 = new Thread() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(3000);
+                    System.out.println("-------------------");
+                    File file = new File("D://test.txt");
+                    if (!file.exists()) {
+                        file.createNewFile();
+                    }
+                    cdl.countDown();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        };
+        executorService.submit(t11);
+        executorService.submit(t1);
+
+        cdl.await();
+
+        executorService.shutdown();
+        System.out.println(".................");
     }
 }

@@ -17,14 +17,7 @@ public class ReaderExample {
     public static void main(String[] args) throws IOException {
         Configuration conf = new Configuration();
 
-        String orcPath = "E:\\workspace\\idea\\hadoop_exercise\\output\\joinorcjob1\\part-r-00000.orc";
-        orcPath = "E:\\workspace\\idea\\hadoop_exercise\\output\\joinorcjob2\\table_10.orc";
-        orcPath = "E:\\workspace\\idea\\hadoop_exercise\\output\\join_demo_10\\part-m-00000.orc";
-        orcPath = "E:\\workspace\\idea\\hadoop_exercise\\input\\join\\table\\table1.orc";// 错误
-        orcPath = "E:\\workspace\\idea\\hadoop_exercise\\input\\join\\table2\\demo9.orc";
-        orcPath = "E:\\workspace\\idea\\hadoop_exercise\\output\\join_demo_11\\part-m-00000.orc";
-        orcPath = "E:\\workspace\\idea\\hadoop_exercise\\input\\join\\table\\table0.orc";
-        orcPath = "E:\\workspace\\idea\\hadoop_exercise\\output\\joinorcjob8\\table_0-r-00000.orc";
+        String orcPath = "E:\\workspace\\idea\\hadoop_exercise\\output\\joinorcjob8\\table_9-r-00009.orc";
 
         // 使用 OrcFile 创建 Reader
         Reader reader = OrcFile.createReader(new Path(orcPath), OrcFile.readerOptions(conf));

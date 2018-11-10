@@ -25,7 +25,7 @@ public class OrcCustomerOutputFormat<V extends Writable>
             "orc.mapreduce.output.skip-temporary-directory";
 
     @Override
-    public RecordWriter<NullWritable, V> getRecordWriter(TaskAttemptContext job) throws IOException, InterruptedException {
+    public RecordWriter<NullWritable, V> getRecordWriter(TaskAttemptContext job) throws IOException {
         Configuration conf = job.getConfiguration();
         Path filename = getDefaultWorkFile(job, EXTENSION);
         FileSystem fileSystem = FileSystem.get(conf);

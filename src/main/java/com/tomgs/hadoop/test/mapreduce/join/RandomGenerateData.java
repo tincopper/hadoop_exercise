@@ -17,15 +17,15 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.URI;
 import java.util.Random;
+import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 /**
- * 
  * @author tomgs
- *
  */
-public class RandomGenerateData extends Thread {
+public class RandomGenerateData {
 
     private static Logger logger = LoggerFactory.getLogger(RandomGenerateData.class);
     private static String opType = "IUD";
@@ -34,6 +34,7 @@ public class RandomGenerateData extends Thread {
     private final String outPath;
     private int index = 0;
     private int[] tableNums;
+    private static CountDownLatch cdl;
 
     public RandomGenerateData(FileSystem fileSystem, int i, int[] tableNums, int rowNums, String outPath) {
         this.fileSystem = fileSystem;
@@ -45,11 +46,11 @@ public class RandomGenerateData extends Thread {
 
     /**
      * 全量数据
+     *
      * @param cols
      * @param records
      */
-     void generateData(int cols, int records, int tableId, String outpath) throws IOException {
-        //Configuration conf = new Configuration();
+    void generateData(int cols, int records, int tableId, String outpath) throws IOException {
 
         //定义输出数据结构
         TypeDescription schema = TypeDescription.createStruct();
@@ -57,7 +58,7 @@ public class RandomGenerateData extends Thread {
         schema.addField("columns", TypeDescription.createInt());
         schema.addField("table", TypeDescription.createInt());
         schema.addField("TS", TypeDescription.createString());
-        for (int i = 0; i < cols - 4; ++ i) {
+        for (int i = 0; i < cols - 4; ++i) {
             schema.addField("field" + i, TypeDescription.createString());
         }
 
@@ -79,7 +80,7 @@ public class RandomGenerateData extends Thread {
             ((BytesColumnVector) batch.cols[3]).setVal(row, timestamp.getBytes());
 
             for (int j = 0; j < columns - 4; j++) {
-                String fieldValue = "field" + j;
+                String fieldValue = UUID.randomUUID().toString();
                 ((BytesColumnVector) batch.cols[j + 4]).setVal(row, fieldValue.getBytes());
             }
 
@@ -102,14 +103,15 @@ public class RandomGenerateData extends Thread {
 
     /**
      * 更改数据
+     *
      * @param cols
      * @param rows
      */
     void generateOp(int cols, int rows, int tableId, FSDataOutputStream fsDataOutputStream) {
         Random random = new Random();
-        int tmpRow = 50;//至少50条
-        if (rows < 10050) {
-            tmpRow += rows / 2;
+        int tmpRow = 500;//至少500条
+        if (rows < 1000) {
+            tmpRow += rows;
         } else {
             tmpRow += random.nextInt(10000);
         }
@@ -125,11 +127,11 @@ public class RandomGenerateData extends Thread {
                 json.put("columns", cols);
                 json.put("TS", currentTimeMillis);
                 for (int i1 = 0; i1 < cols - 4; i1++) {
-                    json.put("field" + i1, "field" + i1);
+                    json.put("field" + i1, UUID.randomUUID().toString());
                 }
             }
 
-            if (opType.charAt(type) == 'U') {
+            if (opType.charAt(type) == 'U' && i < rows) {
                 json.put("id", random.nextInt(rows));
                 //随机修改几列
                 for (int i1 = 0; i1 < random.nextInt(cols - 4); i1++) {
@@ -137,15 +139,15 @@ public class RandomGenerateData extends Thread {
                 }
             }
 
-            if (opType.charAt(type) == 'D') {
+            if (opType.charAt(type) == 'D' && i < rows) {
                 json.put("id", random.nextInt(rows));
             }
 
+            if (json.size() <= 0) {
+                continue;
+            }
+
             long currentTimeMillis = System.currentTimeMillis();
-            //json.put("TS", currentTimeMillis);
-            //json.put("type", type);
-            //json.put("table", tableId);
-            //json.put("columns", cols);
             JSONObject item = new JSONObject();
             try {
                 item.put("TS", currentTimeMillis);
@@ -154,43 +156,55 @@ public class RandomGenerateData extends Thread {
                 item.put("data", json);
                 fsDataOutputStream.writeBytes(item.toString());
                 fsDataOutputStream.writeBytes("\n");
-            } catch(Exception e) {
-
-            }
-
-            try {
                 fsDataOutputStream.flush();
-            } catch(Exception e) {
-
+            } catch (Exception e) {
+                logger.error(e.getMessage(), e);
             }
         }
     }
 
-    @Override
-    public void run() {
+    class AllGenerateData implements Runnable {
 
-        try {
+        @Override
+        public void run() {
             //生成全量
-            generateData(this.tableNums[index], rowNums, index, outPath + "/table/table" + index + ".orc");
-            System.out.println("写table" + index + ".orc成功...");
-            //生成增量
-            FSDataOutputStream fsDataOutputStream = fileSystem.create(new Path(outPath + "/inc/inc" + index + ".json"));
-            generateOp(tableNums[this.index], rowNums, this.index, fsDataOutputStream);
-            System.out.println("写table" + index + " /inc" + index + ".json" + "成功...");
-
-            if (fsDataOutputStream != null) {
-                fsDataOutputStream.flush();
-                fsDataOutputStream.close();
+            try {
+                generateData(tableNums[index], rowNums, index, outPath + "/table/table" + index + ".orc");
+                logger.info("写table{}.orc成功，剩余{}个文件待写...", index, cdl.getCount() - 1);
+            } catch (IOException e) {
+                logger.error(e.getMessage(), e);
+            } finally {
+                cdl.countDown();
             }
-        } catch (IOException e) {
-            e.printStackTrace();
         }
+    }
 
+    class AppendGenerateData implements Runnable {
+
+        @Override
+        public void run() {
+            try {
+                //生成增量
+                FSDataOutputStream fsDataOutputStream = fileSystem.create(new Path(outPath + "/inc/inc" + index + ".json"));
+                generateOp(tableNums[index], rowNums, index, fsDataOutputStream);
+                logger.info("写table{}/inc{}.json" + "成功，剩余{}个文件待写...", index, index, cdl.getCount() - 1);
+
+                if (fsDataOutputStream != null) {
+                    fsDataOutputStream.flush();
+                    fsDataOutputStream.close();
+                }
+            } catch (IOException e) {
+                logger.error(e.getMessage(), e);
+            } finally {
+                cdl.countDown();
+            }
+        }
     }
 
     /**
      * 运行 java -classpath *.jar com.tomgs.hadoop.test.mapreduce.join.RandomGenerateData 10 10 input/table 10
      * 最后一个代表线程数据量
+     *
      * @param args
      * @throws Exception
      */
@@ -208,8 +222,8 @@ public class RandomGenerateData extends Thread {
         final int[] tableNums = new int[tableNum];
         //设置每个表的列数
         Random random = new Random();
-        for (int i = 0; i < tableNum - 1; ++ i) {
-            tableNums[i] = random.nextInt(100) + 15;
+        for (int i = 0; i < tableNum; ++i) {
+            tableNums[i] = random.nextInt(50) + 15;
         }
 
         //设置输出目录
@@ -219,12 +233,11 @@ public class RandomGenerateData extends Thread {
         final String threads = args[3];
         System.out.println("线程数:" + threads);
 
-        //FileSystem fileSystem = FileSystem.get(new URI(args[3]), configuration);
-        //FileSystem fileSystem = FileSystem.get(configuration);
+        final String startTableId = args[6];
+        System.out.println("初始表ID:" + startTableId);
 
         String HDFS_ROOT_PATH = args[4];
         String hdfsUser = args[5];
-        //configuration.set("fs.defaultFS", "hdfs://dwhdponline");
         FileSystem fileSystem = null;
         Configuration configuration = new Configuration();
         if ("localhost".equalsIgnoreCase(HDFS_ROOT_PATH)) {
@@ -238,9 +251,20 @@ public class RandomGenerateData extends Thread {
         System.out.println(conf == configuration);
 
         ExecutorService executorService = Executors.newFixedThreadPool(Integer.parseInt(threads));
-        for (int i = 0; i < tableNums.length; i++) {
-            executorService.submit(new RandomGenerateData(fileSystem, i, tableNums, tableRowNums, outPath));
+        int startTable = Integer.parseInt(startTableId);
+        cdl = new CountDownLatch((tableNums.length - startTable) * 2);
+
+        for (int i = 0; i < tableNums.length - startTable; i++) {
+            int currentIndex = i + startTable;
+            RandomGenerateData randomGenerateData = new RandomGenerateData(fileSystem, currentIndex, tableNums, tableRowNums, outPath);
+            executorService.submit(randomGenerateData.new AllGenerateData());
+            executorService.submit(randomGenerateData.new AppendGenerateData());
         }
+
+        long startTime = System.currentTimeMillis();
+        cdl.await();
+        logger.info("write data cost time : {}ms", System.currentTimeMillis() - startTime);
+
         executorService.shutdown();
     }
 

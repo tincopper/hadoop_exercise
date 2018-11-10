@@ -1,5 +1,6 @@
 package com.tomgs.hadoop.test.mapreduce.join.demo8;
 
+import com.tomgs.hadoop.test.mapreduce.customer.OrcCustomerInputFormat;
 import com.tomgs.hadoop.test.mapreduce.customer.OrcCustomerOutputFormat;
 import com.tomgs.hadoop.test.mapreduce.join.demo7.JoinOrcJob7;
 import org.apache.hadoop.conf.Configuration;
@@ -24,7 +25,6 @@ import org.apache.hadoop.mapreduce.lib.output.TextOutputFormat;
 import org.apache.hadoop.util.GenericOptionsParser;
 import org.apache.orc.TypeDescription;
 import org.apache.orc.mapred.OrcStruct;
-import org.apache.orc.mapreduce.OrcInputFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -57,8 +57,7 @@ public class JoinOrcJob8 {
         private MultipleOutputs<NullWritable, OrcStruct> multipleOutputs;
 
         @Override
-        protected void setup(Context context)
-                throws IOException, InterruptedException {
+        protected void setup(Context context) {
             this.multipleOutputs = new MultipleOutputs<>(context);
         }
 
@@ -68,30 +67,31 @@ public class JoinOrcJob8 {
         }
 
         @Override
-        protected void reduce(IntWritable key, Iterable<Text> values, Context context) throws IOException, InterruptedException {
+        protected void reduce(IntWritable key, Iterable<Text> values, Context context)
+                throws IOException, InterruptedException {
 
             if (values == null) {
                 return;
             }
-
-            Text next = values.iterator().next();
-            String[] first = next.toString().split(",");
-
-            int tableId = Integer.parseInt(first[0]);
-            int filedColumns = Integer.parseInt(first[1]);
-
-            TypeDescription schema = TypeDescription.createStruct();
-            schema.addField("table", TypeDescription.createInt());
-            schema.addField("columns", TypeDescription.createInt());
-            schema.addField("TS", TypeDescription.createString());
-            schema.addField("id", TypeDescription.createInt());
-            for (int i = 0; i < filedColumns - 4; i++) {
-                schema.addField("field" + i, TypeDescription.createString());
-            }
-            OrcStruct pair = (OrcStruct) OrcStruct.createValue(schema);
-
+            TypeDescription schema = null;
+            OrcStruct pair = null;
             for (Text value : values) {
                 String[] arr = value.toString().split(",");
+                int tableId = Integer.parseInt(arr[0]);
+                int filedColumns = Integer.parseInt(arr[1]);
+
+                if (schema == null) {
+                    schema = TypeDescription.createStruct();
+                    schema.addField("table", TypeDescription.createInt());
+                    schema.addField("columns", TypeDescription.createInt());
+                    schema.addField("TS", TypeDescription.createString());
+                    schema.addField("id", TypeDescription.createInt());
+                    for (int i = 0; i < filedColumns - 4; i++) {
+                        schema.addField("field" + i, TypeDescription.createString());
+                    }
+                    pair = (OrcStruct) OrcStruct.createValue(schema);
+                }
+
                 for (int i = 0; i < filedColumns; i++) {
                     Text strvalue = new Text();
                     IntWritable intvalue = new IntWritable();
@@ -109,7 +109,7 @@ public class JoinOrcJob8 {
         }
     }
 
-    public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
+    public static void main(String[] args) throws IOException {
 
         if (args.length < 3) {
             throw new IllegalArgumentException("输入参数有误...");
@@ -131,7 +131,7 @@ public class JoinOrcJob8 {
         job1.setNumReduceTasks(Integer.parseInt(otherArgs[4] == null ? "64" : otherArgs[4]));
 
         MultipleInputs.addInputPath(job1, new Path(otherArgs[0]), TextInputFormat.class, JoinOrcJob7.AppendMapper.class);
-        MultipleInputs.addInputPath(job1, new Path(otherArgs[1]), OrcInputFormat.class, JoinOrcJob7.OrcFileReadMapper.class);
+        MultipleInputs.addInputPath(job1, new Path(otherArgs[1]), OrcCustomerInputFormat.class, JoinOrcJob7.OrcFileReadMapper.class);
 
         Path outPath = new Path(otherArgs[2]);
         FileSystem fs = FileSystem.get(conf);
@@ -155,7 +155,7 @@ public class JoinOrcJob8 {
         job2.setMapOutputValueClass(Text.class);
 
         job2.setInputFormatClass(TextInputFormat.class);
-        job2.setNumReduceTasks(Integer.parseInt(otherArgs[4] == null ? "64" : otherArgs[4]));
+        job2.setNumReduceTasks(Integer.parseInt(otherArgs[5] == null ? "64" : otherArgs[5]));
         FileInputFormat.addInputPath(job2, outPath);
 
         job2.setReducerClass(OrcWriterReducer.class);
@@ -188,14 +188,14 @@ public class JoinOrcJob8 {
         //在线程中启动，记住一定要有这个
         Thread thread = new Thread(jobCtrl);
         thread.start();
+        long startTime = System.currentTimeMillis();
         while (true) {
-            long startTime = System.currentTimeMillis();
             if (jobCtrl.allFinished()) {
                 logger.info(jobCtrl.getSuccessfulJobList().toString());
                 jobCtrl.stop();
                 break;
             }
-            logger.info("csot time : {}", System.currentTimeMillis() - startTime);
         }
+        logger.info("csot time : {}ms", System.currentTimeMillis() - startTime);
     }
 }
