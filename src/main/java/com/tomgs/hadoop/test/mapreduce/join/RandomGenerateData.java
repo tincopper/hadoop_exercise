@@ -25,23 +25,24 @@ import java.util.concurrent.Executors;
 /**
  * @author tomgs
  */
-public class RandomGenerateData {
+public class RandomGenerateData extends Thread {
 
     private static Logger logger = LoggerFactory.getLogger(RandomGenerateData.class);
     private static String opType = "IUD";
     private final FileSystem fileSystem;
-    private int rowNums = 10;
+    private final int rowNums;
     private final String outPath;
-    private int index = 0;
+    private final int index;
     private int[] tableNums;
-    private static CountDownLatch cdl;
+    private final CountDownLatch cdl;
 
-    public RandomGenerateData(FileSystem fileSystem, int i, int[] tableNums, int rowNums, String outPath) {
+    public RandomGenerateData(FileSystem fileSystem, int i, int[] tableNums, int rowNums, String outPath, CountDownLatch cdl) {
         this.fileSystem = fileSystem;
         this.index = i;
         this.tableNums = tableNums;
         this.rowNums = rowNums;
         this.outPath = outPath;
+        this.cdl = cdl;
     }
 
     /**
@@ -51,6 +52,11 @@ public class RandomGenerateData {
      * @param records
      */
     void generateData(int cols, int records, int tableId, String outpath) throws IOException {
+        Path path = new Path(outpath);
+        if (fileSystem.exists(path)) {
+            logger.info("file [{}] is exists.", outpath);
+            return;
+        }
 
         //定义输出数据结构
         TypeDescription schema = TypeDescription.createStruct();
@@ -62,7 +68,7 @@ public class RandomGenerateData {
             schema.addField("field" + i, TypeDescription.createString());
         }
 
-        Writer writer = OrcFile.createWriter(new Path(outpath), OrcFile.writerOptions(fileSystem.getConf())
+        Writer writer = OrcFile.createWriter(path, OrcFile.writerOptions(fileSystem.getConf()).bufferSize(2 * 1024 * 1024)
                 .fileSystem(fileSystem).setSchema(schema));
         VectorizedRowBatch batch = schema.createRowBatch();
 
@@ -163,6 +169,34 @@ public class RandomGenerateData {
         }
     }
 
+    @Override
+    public void run() {
+        //生成全量
+        try {
+            generateData(tableNums[index], rowNums, index, outPath + "/table/table" + index + ".orc");
+            logger.info("写table{}.orc成功...", index);
+
+            //生成增量
+            Path path = new Path(outPath + "/inc/inc" + index + ".json");
+            if (fileSystem.exists(path)) {
+                logger.info("file [{}] is exists.", path.toString());
+                return ;
+            }
+            FSDataOutputStream fsDataOutputStream = fileSystem.create(path);
+            generateOp(tableNums[index], rowNums, index, fsDataOutputStream);
+            logger.info("写table{}/inc{}.json" + "成功，剩余{}个文件待写...", index, index, tableNums.length - index - 1);
+
+            if (fsDataOutputStream != null) {
+                fsDataOutputStream.flush();
+                fsDataOutputStream.close();
+            }
+        } catch (IOException e) {
+            logger.error(e.getMessage(), e);
+        } finally {
+            cdl.countDown();
+        }
+    }
+
     class AllGenerateData implements Runnable {
 
         @Override
@@ -248,17 +282,17 @@ public class RandomGenerateData {
         }
 
         Configuration conf = fileSystem.getConf();
-        System.out.println(conf == configuration);
-
         ExecutorService executorService = Executors.newFixedThreadPool(Integer.parseInt(threads));
         int startTable = Integer.parseInt(startTableId);
-        cdl = new CountDownLatch((tableNums.length - startTable) * 2);
-
+        //CountDownLatch cdl = new CountDownLatch((tableNums.length - startTable) * 2);
+        CountDownLatch cdl = new CountDownLatch(tableNums.length - startTable);
         for (int i = 0; i < tableNums.length - startTable; i++) {
             int currentIndex = i + startTable;
-            RandomGenerateData randomGenerateData = new RandomGenerateData(fileSystem, currentIndex, tableNums, tableRowNums, outPath);
-            executorService.submit(randomGenerateData.new AllGenerateData());
-            executorService.submit(randomGenerateData.new AppendGenerateData());
+            RandomGenerateData randomGenerateData = new RandomGenerateData(fileSystem, currentIndex,
+                    tableNums, tableRowNums, outPath, cdl);
+            //executorService.submit(randomGenerateData.new AllGenerateData());
+            //executorService.submit(randomGenerateData.new AppendGenerateData());
+            executorService.submit(randomGenerateData);
         }
 
         long startTime = System.currentTimeMillis();

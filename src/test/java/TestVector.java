@@ -133,4 +133,14 @@ public class TestVector {
         executorService.shutdown();
         System.out.println(".................");
     }
+
+    @Test
+    public void test6() {
+        int i = 0;
+        List<Integer> list = new ArrayList<>();
+        i++;
+        list.add(i++);
+
+        System.out.println(list.get(0));
+    }
 }

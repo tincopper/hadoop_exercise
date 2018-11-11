@@ -7,6 +7,7 @@ import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapreduce.Counter;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
@@ -36,9 +37,8 @@ public class ORCJob2 {
 
         private OrcStruct pair = (OrcStruct) OrcStruct.createValue(schema);
 
-        private final NullWritable nada = NullWritable.get();
-
         public void map(LongWritable key, Text value, Context output) throws IOException, InterruptedException {
+
             String[] arr = value.toString().split(",");
             for (int i = 0; i < arr.length; i++) {
                 Text strvalue = new Text();
@@ -51,7 +51,7 @@ public class ORCJob2 {
                     pair.setFieldValue(i, strvalue);
                 }
             }
-            output.write(nada, pair);
+            output.write(NullWritable.get(), pair);
         }
     }
 
@@ -71,7 +71,7 @@ public class ORCJob2 {
         job.setMapperClass(OrcWriterMapper.class);
 
         job.setInputFormatClass(TextInputFormat.class);
-        job.setNumReduceTasks(0);
+        job.setNumReduceTasks(2);
 
         job.setOutputFormatClass(OrcOutputFormat.class);
         FileInputFormat.addInputPath(job, new Path(otherArgs[0]));

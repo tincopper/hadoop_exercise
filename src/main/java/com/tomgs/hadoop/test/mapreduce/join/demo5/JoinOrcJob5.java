@@ -26,6 +26,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Vector;
 
@@ -58,10 +60,10 @@ public class JoinOrcJob5 {
                 return;
             }
 
-            Vector<String> insertData = new Vector<>();
-            Vector<String> deleteData = new Vector<>();
-            Vector<String> updateData = new Vector<>();
-            Vector<String> originData = new Vector<>();
+            List<String> insertData = new ArrayList<>();
+            List<String> deleteData = new ArrayList<>();
+            List<String> updateData = new ArrayList<>();
+            List<String> originData = new ArrayList<>();
 
             JoinOrcJob2.MultiReducer.doCacheData(values, insertData, deleteData, updateData, originData);
 

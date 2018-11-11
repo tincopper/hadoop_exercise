@@ -159,13 +159,13 @@ public class JoinOrcJob8 {
         FileInputFormat.addInputPath(job2, outPath);
 
         job2.setReducerClass(OrcWriterReducer.class);
-        job1.setOutputKeyClass(NullWritable.class);
-        job1.setOutputValueClass(OrcStruct.class);
+        job2.setOutputKeyClass(NullWritable.class);
+        job2.setOutputValueClass(OrcStruct.class);
 
         Path outPath2 = new Path(otherArgs[3]);
         FileSystem fs1 = FileSystem.get(conf);
-        if (fs1.exists(outPath)) {
-            fs1.delete(outPath, true);
+        if (fs1.exists(outPath2)) {
+            fs1.delete(outPath2, true);
         }
 
         job2.setOutputFormatClass(OrcCustomerOutputFormat.class);

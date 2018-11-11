@@ -17,7 +17,7 @@ public class ReaderExample {
     public static void main(String[] args) throws IOException {
         Configuration conf = new Configuration();
 
-        String orcPath = "E:\\workspace\\idea\\hadoop_exercise\\output\\joinorcjob8\\table_9-r-00009.orc";
+        String orcPath = "E:\\workspace\\idea\\hadoop_exercise\\input\\orc\\table381.orc";
 
         // 使用 OrcFile 创建 Reader
         Reader reader = OrcFile.createReader(new Path(orcPath), OrcFile.readerOptions(conf));
@@ -28,8 +28,8 @@ public class ReaderExample {
         int i = 0;
         while (rows.nextBatch(batch)) {
             i+=batch.size;
-            System.out.println(batch.size);
-            System.out.println(batch);
+            //System.out.println(batch.size);
+            //System.out.println(batch);
         }
         System.out.println("all size:" + i);
         rows.close();

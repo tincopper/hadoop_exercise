@@ -25,9 +25,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.ListIterator;
 import java.util.Map;
-import java.util.Vector;
 
 /**
  * @author tangzhongyuan
@@ -58,10 +59,10 @@ public class JoinOrcJob2 {
             }
             long startTime = System.currentTimeMillis();
 
-            Vector<String> insertData = new Vector<>();
-            Vector<String> deleteData = new Vector<>();
-            Vector<String> updateData = new Vector<>();
-            Vector<String> originData = new Vector<>();
+            List<String> insertData = new ArrayList<>();
+            List<String> deleteData = new ArrayList<>();
+            List<String> updateData = new ArrayList<>();
+            List<String> originData = new ArrayList<>();
 
             doCacheData(values, insertData, deleteData, updateData, originData);
             //把新增数据插入到原始集合
@@ -144,10 +145,12 @@ public class JoinOrcJob2 {
                 writer.close();
             }
 
-            context.write(NullWritable.get(), new Text("convert table:" + firstMap.get("table") +", cost time : " + (System.currentTimeMillis() - startTime) + "ms."));
+            context.write(NullWritable.get(), new Text("convert table:" + firstMap.get("table")
+                    +", cost time : " + (System.currentTimeMillis() - startTime) + "ms."));
         }
 
-        public static void doCacheData(Iterable<Text> values, Vector<String> insertData, Vector<String> deleteData, Vector<String> updateData, Vector<String> originData) {
+        public static void doCacheData(Iterable<Text> values, List<String> insertData,
+                                       List<String> deleteData, List<String> updateData, List<String> originData) {
             for (Text value : values) {
                 String dataValue = value.toString();
                 if (dataValue.startsWith("I")) {
@@ -169,7 +172,7 @@ public class JoinOrcJob2 {
             }
         }
 
-        public static void doUpdateAndDelete(Vector<String> deleteData, Vector<String> updateData, Vector<String> originData) {
+        public static void doUpdateAndDelete(List<String> deleteData, List<String> updateData, List<String> originData) {
             for (ListIterator<String> originIterator = originData.listIterator(); originIterator.hasNext(); ) {
                 String originDatum = originIterator.next();
                 Map<String, Object> originDatumMap = JsonUtil.convertJsonStrToMap(originDatum);
