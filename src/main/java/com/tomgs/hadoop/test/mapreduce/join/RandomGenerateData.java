@@ -281,7 +281,6 @@ public class RandomGenerateData extends Thread {
             fileSystem = FileSystem.get(new URI(HDFS_ROOT_PATH), configuration, hdfsUser);
         }
 
-        Configuration conf = fileSystem.getConf();
         ExecutorService executorService = Executors.newFixedThreadPool(Integer.parseInt(threads));
         int startTable = Integer.parseInt(startTableId);
         //CountDownLatch cdl = new CountDownLatch((tableNums.length - startTable) * 2);

@@ -6,6 +6,8 @@ import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.orc.OrcFile;
 import org.apache.orc.Reader;
 import org.apache.orc.RecordReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
@@ -14,6 +16,9 @@ import java.io.IOException;
  * @create 2018-11-06 11:55
  **/
 public class ReaderExample {
+
+    private static Logger logger = LoggerFactory.getLogger(ReaderExample.class);
+
     public static void main(String[] args) throws IOException {
         Configuration conf = new Configuration();
 
@@ -24,6 +29,8 @@ public class ReaderExample {
 
         // 读取文件
         RecordReader rows = reader.rows();
+        long numberOfRows = reader.getNumberOfRows();
+        System.out.println(numberOfRows);
         VectorizedRowBatch batch = reader.getSchema().createRowBatch();
         int i = 0;
         while (rows.nextBatch(batch)) {

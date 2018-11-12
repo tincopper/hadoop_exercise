@@ -48,7 +48,8 @@ public class OrcCustomMapreduceRecordWriter<V extends Writable>
     public void write(NullWritable key, V value) throws IOException {
         if (writer == null) {
             writer = OrcFile.createWriter(fiilename,
-                    OrcFile.writerOptions(fileSystem.getConf()).setSchema(((OrcStruct)value).getSchema()));
+                    OrcFile.writerOptions(fileSystem.getConf()).fileSystem(fileSystem).
+                            bufferSize(2 * 1024 * 1024).setSchema(((OrcStruct)value).getSchema()));
             schema = writer.getSchema();
             this.batch = schema.createRowBatch();
             isTopStruct = schema.getCategory() == TypeDescription.Category.STRUCT;

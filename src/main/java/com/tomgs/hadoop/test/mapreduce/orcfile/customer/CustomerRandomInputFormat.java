@@ -27,8 +27,8 @@ public class CustomerRandomInputFormat extends FileInputFormat<IntWritable, IntW
     @Override
     protected boolean isSplitable(JobContext context, Path filename) {
         Configuration configuration = context.getConfiguration();
-        int tableNums = configuration.getInt("tableNums", 0);
-        if (tableNums == 0) {
+        int tableNums = configuration.getInt("tableNums", -1);
+        if (tableNums <= 0) {
             return false;
         }
         return true;
@@ -43,7 +43,7 @@ public class CustomerRandomInputFormat extends FileInputFormat<IntWritable, IntW
         Path outDir = FileOutputFormat.getOutputPath(job);
         for (int i = 0; i < tableNums; i++) {
             inputSplits.add(new FileSplit(new Path(outDir, "split-" + i),
-                    0, 1, null));
+                    0, i, null));
         }
 
         return inputSplits;
@@ -70,7 +70,7 @@ class RandomRecordReader extends RecordReader<IntWritable, IntWritable> {
 
     @Override
     public boolean nextKeyValue() throws IOException, InterruptedException {
-        if (tableNums < 0) {
+        if (tableNums <= 0 || rowNums <= 0) {
             return false;
         }
         if (key == null) {
@@ -83,7 +83,7 @@ class RandomRecordReader extends RecordReader<IntWritable, IntWritable> {
         }
 
         int currentKey = key.get();
-        if (currentKey > tableNums) {
+        if (currentKey >= rowNums) {
             return false;
         }
         key.set(index++);

@@ -16,6 +16,9 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.LazyOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 import org.apache.hadoop.util.GenericOptionsParser;
+import org.apache.orc.TypeDescription;
+import org.apache.orc.mapred.OrcStruct;
+import org.apache.orc.mapreduce.OrcOutputFormat;
 
 import java.io.IOException;
 
@@ -24,11 +27,13 @@ import java.io.IOException;
  * @author tangzhongyuan
  * @create 2018-11-11 18:03
  **/
-public class CustomerGenerateData {
+public class CustomerGenerateOrcData {
 
-    public static class AppendMapper extends Mapper<IntWritable, IntWritable, NullWritable, Text> {
+    public static class AppendMapper extends Mapper<IntWritable, IntWritable, NullWritable, OrcStruct> {
 
-        private MultipleOutputs<NullWritable, Text> multipleOutputs;
+        private MultipleOutputs<NullWritable, OrcStruct> multipleOutputs;
+        private TypeDescription schema = TypeDescription.createStruct();
+        private OrcStruct pair = (OrcStruct) OrcStruct.createValue(schema);
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
@@ -54,7 +59,7 @@ public class CustomerGenerateData {
 
             //context.write(NullWritable.get(), new Text("key:" + tablePrefix + ",value:" + value));
             //String fileName = ((FileSplit) context.getInputSplit()).getPath().getName();
-            multipleOutputs.write(NullWritable.get(), new Text("key:" + rowId + ",value:" + rowNums),
+            multipleOutputs.write(NullWritable.get(), pair,
                     "table" + tableId + "_" + rowId);
         }
     }
@@ -65,7 +70,7 @@ public class CustomerGenerateData {
         conf.setInt("tableRows", 10);
 
         Job job = Job.getInstance(conf, "CustomerGenerateDataJob");
-        job.setJarByClass(CustomerGenerateData.class);
+        job.setJarByClass(CustomerGenerateOrcData.class);
 
         String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
         if (otherArgs.length < 2) {
@@ -79,13 +84,8 @@ public class CustomerGenerateData {
         //设置下面这个会输出part-m-xxx的
         //job.setOutputFormatClass(CustomerRandomOutputFormat.class);
         //使用下面这个不会有上面的问题
-        LazyOutputFormat.setOutputFormatClass(job, CustomerRandomOutputFormat.class);
+        LazyOutputFormat.setOutputFormatClass(job, OrcOutputFormat.class);
         job.setNumReduceTasks(0);
-
-        //job.setInputFormatClass(CustomerRandomInputFormat.class);
-        //job.setOutputKeyClass(NullWritable.class);
-        //job.setOutputValueClass(Text.class);
-        //job.setNumReduceTasks(0);
 
         FileSystem fileSystem = FileSystem.get(conf);
         Path outpath = new Path(otherArgs[1]);
