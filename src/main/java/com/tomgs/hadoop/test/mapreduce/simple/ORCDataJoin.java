@@ -1,4 +1,4 @@
-package com.tomgs.hadoop.test.mapreduce;
+package com.tomgs.hadoop.test.mapreduce.simple;
 
 import com.tomgs.hadoop.test.util.JsonUtil;
 import org.apache.hadoop.conf.Configuration;

@@ -13,6 +13,8 @@
         <maven.compiler.source>1.7</maven.compiler.source>
         <maven.compiler.target>1.7</maven.compiler.target>
         <hadoop.version>2.6.0</hadoop.version>
+        <http-components.version>4.5.2</http-components.version>
+        <httpclient.version>4.5.3</httpclient.version>
     </properties>
 
     <dependencies>
@@ -126,6 +128,16 @@
             <groupId>com.alibaba</groupId>
             <artifactId>fastjson</artifactId>
             <version>1.2.31</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>${http-components.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpmime</artifactId>
+            <version>${http-components.version}</version>
         </dependency>
     </dependencies>
     <!--<build>

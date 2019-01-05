@@ -39,7 +39,11 @@ public class TestVector {
             }
             System.out.println(originData.contains(next));
             System.out.println(next);
+            return;
+            //break;
         }
+
+        System.out.println("--------------");
 
         /*for (Iterator<String> iterator = originData.iterator(); iterator.hasNext();) {
             String next = iterator.next(); //这里会报ConcurrentModificationException异常
@@ -142,5 +146,18 @@ public class TestVector {
         list.add(i++);
 
         System.out.println(list.get(0));
+    }
+
+    @Test
+    public void test7() {
+        method();
+    }
+
+    public void method(String ... str) {
+        for (String s : str) {
+            if (s != null) {
+                System.out.println(s);
+            }
+        }
     }
 }

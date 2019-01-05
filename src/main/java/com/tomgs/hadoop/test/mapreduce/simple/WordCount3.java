@@ -1,4 +1,4 @@
-package com.tomgs.hadoop.test.mapreduce;
+package com.tomgs.hadoop.test.mapreduce.simple;
 
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;

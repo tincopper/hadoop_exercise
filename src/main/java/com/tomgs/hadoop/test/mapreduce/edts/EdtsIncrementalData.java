@@ -4,10 +4,11 @@ import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang.builder.ToStringBuilder;
 
 /**
+ * 增量数据格式
  * @author tangzhongyuan
  * @create 2019-01-03 11:36
  **/
-public class EdtsMetaData {
+public class EdtsIncrementalData {
 
     private String table;
 

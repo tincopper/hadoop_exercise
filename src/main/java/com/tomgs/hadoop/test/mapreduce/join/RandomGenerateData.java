@@ -29,7 +29,7 @@ public class RandomGenerateData extends Thread {
 
     private static Logger logger = LoggerFactory.getLogger(RandomGenerateData.class);
     private static String opType = "IUD";
-    private final FileSystem fileSystem;
+    private static FileSystem fileSystem;
     private final int rowNums;
     private final String outPath;
     private final int index;
@@ -51,7 +51,7 @@ public class RandomGenerateData extends Thread {
      * @param cols
      * @param records
      */
-    void generateData(int cols, int records, int tableId, String outpath) throws IOException {
+    public static void generateData(int cols, int records, int tableId, String outpath) throws IOException {
         Path path = new Path(outpath);
         if (fileSystem.exists(path)) {
             logger.info("file [{}] is exists.", outpath);
@@ -113,7 +113,7 @@ public class RandomGenerateData extends Thread {
      * @param cols
      * @param rows
      */
-    void generateOp(int cols, int rows, int tableId, FSDataOutputStream fsDataOutputStream) {
+    public static void generateOp(int cols, int rows, int tableId, FSDataOutputStream fsDataOutputStream) {
         Random random = new Random();
         int tmpRow = 500;//至少500条
         if (rows < 1000) {

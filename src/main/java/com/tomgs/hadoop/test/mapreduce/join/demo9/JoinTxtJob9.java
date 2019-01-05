@@ -33,9 +33,9 @@ import java.util.Map;
  * @author tangzhongyuan
  * @create 2018-11-14 10:14
  **/
-public class JoinOrcJob9 {
+public class JoinTxtJob9 {
 
-    private static Logger logger = LoggerFactory.getLogger(JoinOrcJob9.class);
+    private static Logger logger = LoggerFactory.getLogger(JoinTxtJob9.class);
 
     public static class MultiReducer extends Reducer<Text, Text, NullWritable, Text> {
 
@@ -80,7 +80,7 @@ public class JoinOrcJob9 {
             }
 
             StringBuffer sb = new StringBuffer();
-            String resultPath = "table_" + key.toString().split("_")[0];
+            String resultPath = "test/" + "table_" + key.toString().split("_")[0];
             for (String originDatum : originData) {
 
                 Map<String, Object> map = JsonUtil.convertJsonStrToMap(originDatum);

@@ -176,6 +176,8 @@ public class JoinOrcJob7 {
         job.setMapOutputValueClass(Text.class);
 
         job.setReducerClass(MultiReducer2.class);
+        job.setNumReduceTasks(Integer.parseInt(otherArgs[3]));
+
         job.setOutputKeyClass(NullWritable.class);
         job.setOutputValueClass(Text.class);
 

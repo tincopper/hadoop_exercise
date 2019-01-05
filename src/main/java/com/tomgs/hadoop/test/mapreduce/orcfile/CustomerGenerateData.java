@@ -48,21 +48,24 @@ public class CustomerGenerateData {
             InputSplit inputSplit = context.getInputSplit();
             int tableId = (int) inputSplit.getLength();
             int tablePrefix = rowId.get() + tableId * rowNums.get();
-
-            //System.out.println("key:" + key);
-            //System.out.println("value" + value);
-
-            //context.write(NullWritable.get(), new Text("key:" + tablePrefix + ",value:" + value));
-            //String fileName = ((FileSplit) context.getInputSplit()).getPath().getName();
-            multipleOutputs.write(NullWritable.get(), new Text("key:" + rowId + ",value:" + rowNums),
+            int startId = rowId.get();
+            int length = rowNums.get();
+            StringBuffer sb = new StringBuffer();
+            for (int i = startId; i < length; i++) {
+                //tableId,cloumsNum,timestamp,rowId,field1Value,field2Value
+                sb.append("key:").append(i).append(",value").append(rowNums).append("\n");
+            }
+            multipleOutputs.write(NullWritable.get(), new Text(sb.toString()),
                     "table" + tableId + "_" + rowId);
         }
     }
 
     public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
         Configuration conf = new Configuration();
-        conf.setInt("tableNums", 10);
-        conf.setInt("tableRows", 10);
+        conf.setInt("tableNums", 20);
+        conf.setInt("tableRows", 20);
+        conf.setInt("startIndex", 0);
+        conf.setInt("splitsRows", 1); //表的分片数
 
         Job job = Job.getInstance(conf, "CustomerGenerateDataJob");
         job.setJarByClass(CustomerGenerateData.class);

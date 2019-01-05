@@ -1,14 +1,17 @@
-package com.tomgs.hadoop.test.mapreduce.join.demo10;
+package com.tomgs.hadoop.test.mapreduce.join.demo11;
 
 import com.tomgs.hadoop.test.mapreduce.join.demo7.JoinOrcJob7;
 import com.tomgs.hadoop.test.mapreduce.join.demo9.JoinJob9Partitioner;
 import com.tomgs.hadoop.test.mapreduce.orcfile.customer.CustomerRandomOutputFormat;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.NullWritable;
 import org.apache.hadoop.io.Text;
 import org.apache.hadoop.mapreduce.Job;
+import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.MultipleInputs;
 import org.apache.hadoop.mapreduce.lib.input.TextInputFormat;
@@ -23,15 +26,32 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 
 /**
- * 这个只用于测试map读取数据的性能。<br/>
+ * 这个只用于测试map读取文本数据的性能。<br/>
  *
  *
  * @author tangzhongyuan
  * @create 2018-11-14 14:32
  **/
-public class JoinOrcJob10 {
+public class JoinOrcJob11 {
 
-    private static Logger logger = LoggerFactory.getLogger(JoinOrcJob10.class);
+    private static Logger logger = LoggerFactory.getLogger(JoinOrcJob11.class);
+
+    public static class TxtFileReadMapper extends Mapper<LongWritable, Text, Text, Text> {
+
+        @Override
+        protected void map(LongWritable key, Text value, Context context)
+                throws IOException, InterruptedException {
+            String line = value.toString().trim();
+            if (StringUtils.isBlank(line)) {
+                return;
+            }
+            String[] split = line.split(",");
+            String tableId = split[0];
+            String rowId = split[3];
+
+            context.write(new Text(tableId + "_" + rowId), value);
+        }
+    }
 
     public static class MultiReducer extends Reducer<Text, Text, NullWritable, Text> {
 
@@ -80,7 +100,7 @@ public class JoinOrcJob10 {
         job.setOutputValueClass(Text.class);
 
         MultipleInputs.addInputPath(job, new Path(otherArgs[0]), TextInputFormat.class, JoinOrcJob7.AppendMapper.class);
-        MultipleInputs.addInputPath(job, new Path(otherArgs[1]), OrcInputFormat.class, JoinOrcJob7.OrcFileReadMapper.class);
+        MultipleInputs.addInputPath(job, new Path(otherArgs[1]), TextInputFormat.class, TxtFileReadMapper.class);
 
         Path outPath = new Path(otherArgs[2]);
         FileSystem fs = FileSystem.get(conf);

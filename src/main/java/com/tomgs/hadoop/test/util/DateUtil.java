@@ -1,4 +1,4 @@
-package com.globalegrow.ejob.common.util;
+package com.tomgs.hadoop.test.util;
 
 import org.apache.commons.lang3.StringUtils;
 
@@ -34,32 +34,6 @@ public class DateUtil {
         return sdf.format(date);
     }
 
-    public static long getExcuteTime(String endTime, String startTime) {
-        if (StringUtils.isEmpty(endTime) || StringUtils.isEmpty(startTime)) {
-            return 0;
-        }
-        if (endTime.equals(startTime)) {
-            return 0;
-        }
-
-        SimpleDateFormat sdf = new SimpleDateFormat(patten);
-        long processTime = 0;
-        if (!(StringUtils.isNotEmpty(endTime) && StringUtils.isNotEmpty(startTime))) {
-            return processTime;
-        }
-        try {
-            java.util.Date end = sdf.parse(endTime);
-            java.util.Date start = sdf.parse(startTime);
-            processTime = (end.getTime() - start.getTime()) / 1000;
-        } catch (ParseException e) {
-            LoggerUtil.warn("rpc request occers exception", e);
-        }
-        if (processTime > 1400000000) {
-            processTime = 0;
-        }
-        return processTime;
-    }
-
     public static long getInterval(Date endTime, Date startTime) {
 
         return (endTime.getTime() - startTime.getTime()) / 1000;
@@ -90,7 +64,7 @@ public class DateUtil {
 
     /**
      * 因此ejob 调度中心已经将时间+8 hour 了，因此传回去的时候应该减个8 小时
-     * @param data
+     * @param date
      * @return
      */
     public static String local2Utc(Date date) {
@@ -152,15 +126,6 @@ public class DateUtil {
         return calendar.getTime();
     }
 
-    public static void main(String[] args) {
-        //TimeZone tz = TimeZone.getTimeZone("Asia/Shanghai");
-        //String time = DateUtil.utc2Local("2016-12-14 14:00:00",DateUtil.patten);
-        System.out.println(getChainDate(true));
-        System.out.println(getChainDate(false));
-        System.out.println(getFormatedDateString(8));
-        System.out.println(TimeUnit.HOURS.toSeconds(1));
-    }
-
     /**
      * timeZoneOffset原为int类型，为班加罗尔调整成float类型
      * timeZoneOffset表示时区，如中国一般使用东八区，因此timeZoneOffset就是8
@@ -208,7 +173,6 @@ public class DateUtil {
         try {
             return df.parse(source);
         } catch (ParseException e) {
-            LoggerUtil.error("time paser error");
         }
         return null;
     }
@@ -315,5 +279,16 @@ public class DateUtil {
     public static String date2Str(long timeMillis) {
         Date date = new Date(timeMillis);
         return date2Str(date);
+    }
+
+    public static void main(String[] args) {
+        //TimeZone tz = TimeZone.getTimeZone("Asia/Shanghai");
+        //String time = DateUtil.utc2Local("2016-12-14 14:00:00",DateUtil.patten);
+        System.out.println(getChainDate(true));
+        System.out.println(getChainDate(false));
+        System.out.println(getFormatedDateString(8));
+        System.out.println(TimeUnit.HOURS.toSeconds(1));
+        System.out.println(new Date());
+        System.out.println(System.currentTimeMillis());
     }
 }

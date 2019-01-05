@@ -1,10 +1,7 @@
 package com.tomgs.hadoop.test.mapreduce.join;
 
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.fs.FileSystem;
-import org.apache.hadoop.fs.LocatedFileStatus;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.RemoteIterator;
+import org.apache.hadoop.fs.*;
 import org.apache.orc.OrcFile;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,6 +48,16 @@ public class CheckOrcFileUsable {
         while (remoteIterator.hasNext()) {
             LocatedFileStatus next = remoteIterator.next();
             Path path = next.getPath();
+
+            // 获取文件状态信息
+            //FileStatus fileStatus = fileSystem.getFileStatus(path);
+            //long fileStatusLen = fileStatus.getLen();
+
+            //文件大小，byte
+            //long len = next.getLen();
+            //所在块大小，byte
+            //long blockSize = next.getBlockSize();
+
             try {
                 //如果文件错误，则reader时会出错
                 OrcFile.createReader(path, OrcFile.readerOptions(conf).filesystem(fileSystem));

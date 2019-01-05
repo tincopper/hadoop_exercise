@@ -17,6 +17,8 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.LazyOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
 import org.apache.hadoop.util.GenericOptionsParser;
+import org.apache.orc.TypeDescription;
+import org.apache.orc.mapred.OrcStruct;
 import org.apache.orc.mapreduce.OrcInputFormat;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,13 +35,13 @@ import java.util.Map;
  * @author tangzhongyuan
  * @create 2018-11-14 10:14
  **/
-public class JoinTxtJob9 {
+public class JoinOrcJob9 {
 
-    private static Logger logger = LoggerFactory.getLogger(JoinTxtJob9.class);
+    private static Logger logger = LoggerFactory.getLogger(JoinOrcJob9.class);
 
-    public static class MultiReducer extends Reducer<Text, Text, NullWritable, Text> {
+    public static class MultiReducer extends Reducer<Text, Text, NullWritable, OrcStruct> {
 
-        private MultipleOutputs<NullWritable, Text> multipleOutputs;
+        private MultipleOutputs<NullWritable, OrcStruct> multipleOutputs;
 
         @Override
         protected void setup(Context context)
@@ -79,31 +81,32 @@ public class JoinTxtJob9 {
                 JoinOrcJob2.MultiReducer.doUpdateAndDelete(deleteData, updateData, originData);
             }
 
-            StringBuffer sb = new StringBuffer();
             String resultPath = "table_" + key.toString().split("_")[0];
+            TypeDescription schema = null;
+            OrcStruct pair = null;
             for (String originDatum : originData) {
 
                 Map<String, Object> map = JsonUtil.convertJsonStrToMap(originDatum);
+                int table = (int) map.get("table");
+                int columns = (int) map.get("columns");
+                String timestamp = (String) map.get("TS");
+                int id = (int) map.get("id");
 
-                sb.append(map.get("table")).append(",")
-                        .append(map.get("columns")).append(",")
-                        .append(map.get("TS")).append(",")
-                        .append(map.get("id")).append(",");
-                int cols = map.size() - 4;
-                for (int i = 0; i < cols - 1; i++) {
-                    sb.append(map.get("field" + i)).append(",");
+                if (schema == null) {
+                    schema = TypeDescription.createStruct();
+                    schema.addField("table", TypeDescription.createInt());
+                    schema.addField("columns", TypeDescription.createInt());
+                    schema.addField("TS", TypeDescription.createString());
+                    schema.addField("id", TypeDescription.createInt());
+                    for (int i = 0; i < columns - 4; i++) {
+                        schema.addField("field" + i, TypeDescription.createString());
+                    }
+                    pair = (OrcStruct) OrcStruct.createValue(schema);
                 }
-                sb.append(map.get("field" + (cols - 1)));
-                if (sb.capacity() > 1024 * 1024) {
-                    multipleOutputs.write(NullWritable.get(), new Text(sb.toString()), resultPath);
-                    sb.delete(0, sb.length());
-                }
-            }
-            if (sb.length() <= 0) {
-                return;
+
             }
 
-            multipleOutputs.write(NullWritable.get(), new Text(sb.toString()), resultPath);
+            multipleOutputs.write(NullWritable.get(), pair, resultPath);
         }
 
     }

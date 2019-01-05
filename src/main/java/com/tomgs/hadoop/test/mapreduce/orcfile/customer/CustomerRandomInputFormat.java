@@ -38,12 +38,14 @@ public class CustomerRandomInputFormat extends FileInputFormat<IntWritable, IntW
     public List<InputSplit> getSplits(JobContext job) throws IOException {
         Configuration configuration = job.getConfiguration();
         int tableNums = configuration.getInt("tableNums", 0);
+        int startIndex = configuration.getInt("startIndex", 0);
+
         List<InputSplit> inputSplits = new ArrayList<>();
 
         Path outDir = FileOutputFormat.getOutputPath(job);
         for (int i = 0; i < tableNums; i++) {
             inputSplits.add(new FileSplit(new Path(outDir, "split-" + i),
-                    0, i, null));
+                    startIndex, startIndex + i, null));
         }
 
         return inputSplits;
@@ -54,6 +56,7 @@ class RandomRecordReader extends RecordReader<IntWritable, IntWritable> {
 
     private int tableNums;
     private int rowNums;
+    private int splitsRows;
 
     private IntWritable key;
     private IntWritable value;
@@ -63,30 +66,36 @@ class RandomRecordReader extends RecordReader<IntWritable, IntWritable> {
         Configuration configuration = context.getConfiguration();
         tableNums = configuration.getInt("tableNums", 0) - 1;
         rowNums = configuration.getInt("tableRows", 0);
-
+        splitsRows = configuration.getInt("splitsRows", 0);
     }
 
-    private int index = 0;
-
+    int index = 0;
     @Override
     public boolean nextKeyValue() throws IOException, InterruptedException {
         if (tableNums <= 0 || rowNums <= 0) {
             return false;
         }
+        int limit = rowNums / splitsRows;
         if (key == null) {
             key = new IntWritable();
             key.set(0);
         }
         if (value == null) {
             value = new IntWritable();
-            value.set(rowNums);
+            value.set(limit);
+            return true;
         }
 
-        int currentKey = key.get();
-        if (currentKey >= rowNums) {
+        int currentValue = value.get();
+        if (currentValue >= rowNums) {
             return false;
         }
-        key.set(index++);
+        if (rowNums % splitsRows != 0) {
+            return false;
+        }
+        index += limit;
+        key.set(index);
+        value.set(index + limit);
         return true;
     }
 
@@ -105,7 +114,7 @@ class RandomRecordReader extends RecordReader<IntWritable, IntWritable> {
         if (key.get() == 0) {
             return 0.0f;
         } else {
-            return Math.min(1.0f, (key.get()) / (float) (tableNums));
+            return Math.min(1.0f, (value.get()) / (float) (rowNums));
         }
     }
 

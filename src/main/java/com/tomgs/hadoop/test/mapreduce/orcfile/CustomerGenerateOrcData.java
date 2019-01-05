@@ -32,8 +32,6 @@ public class CustomerGenerateOrcData {
     public static class AppendMapper extends Mapper<IntWritable, IntWritable, NullWritable, OrcStruct> {
 
         private MultipleOutputs<NullWritable, OrcStruct> multipleOutputs;
-        private TypeDescription schema = TypeDescription.createStruct();
-        private OrcStruct pair = (OrcStruct) OrcStruct.createValue(schema);
 
         @Override
         protected void setup(Context context) throws IOException, InterruptedException {
@@ -53,21 +51,40 @@ public class CustomerGenerateOrcData {
             InputSplit inputSplit = context.getInputSplit();
             int tableId = (int) inputSplit.getLength();
             int tablePrefix = rowId.get() + tableId * rowNums.get();
+            int startId = rowId.get();
+            int length = rowNums.get();
 
-            //System.out.println("key:" + key);
-            //System.out.println("value" + value);
+            int index = 0;
+            for (int i = startId; i < length; i++) {
+                for (int j = 0; j < 2; j++) {
+                    TypeDescription schema = TypeDescription.createStruct();
+                    OrcStruct pair = (OrcStruct) OrcStruct.createValue(schema);
+                    schema.addField("id", TypeDescription.createInt());
+                    schema.addField("value", TypeDescription.createString());
 
-            //context.write(NullWritable.get(), new Text("key:" + tablePrefix + ",value:" + value));
-            //String fileName = ((FileSplit) context.getInputSplit()).getPath().getName();
-            multipleOutputs.write(NullWritable.get(), pair,
-                    "table" + tableId + "_" + rowId);
+                    Text strvalue = new Text();
+                    IntWritable intvalue = new IntWritable();
+
+                    intvalue.set(i);
+                    strvalue.set(rowNums.toString());
+                    if (j == 0) {
+                        pair.setFieldValue(i, intvalue);
+                    } else {
+                        pair.setFieldValue(j, strvalue);
+                    }
+                    multipleOutputs.write(NullWritable.get(), pair,
+                            "table" + tableId + "_" + rowId);
+                }
+            }
         }
     }
 
-    public static void main(String[] args) throws IOException, ClassNotFoundException, InterruptedException {
+    public static void main(String[] args) throws ClassNotFoundException, InterruptedException, IOException {
         Configuration conf = new Configuration();
-        conf.setInt("tableNums", 10);
-        conf.setInt("tableRows", 10);
+        conf.setInt("tableNums", 20);
+        conf.setInt("tableRows", 20);
+        conf.setInt("startIndex", 10);
+        conf.setInt("splitsRows", 2); //表的分片数
 
         Job job = Job.getInstance(conf, "CustomerGenerateDataJob");
         job.setJarByClass(CustomerGenerateOrcData.class);

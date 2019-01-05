@@ -125,6 +125,19 @@ public final class JsonUtil {
 		return map;
 	}
 
+	public static Map<String, String> convertJsonToMap(String jsonStr) {
+		if (StringUtils.isEmpty(jsonStr)) {
+			jsonStr = "{}";
+		}
+
+		Map<String, String> map = JSON.parseObject(jsonStr,
+				new TypeReference<Map<String, String>>() {
+
+				});
+
+		return map;
+	}
+
 	public static <T> T fromObject(Object obj, Class<T> type) {
 		T t = null;
 		try {
