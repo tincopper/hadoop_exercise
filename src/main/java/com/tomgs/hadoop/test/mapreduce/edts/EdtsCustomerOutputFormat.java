@@ -28,8 +28,7 @@ public class EdtsCustomerOutputFormat<K, V> extends TextOutputFormat<K, V> {
     }
 
     protected static String getOutputName(JobContext job) {
-        String outputName = job.getConfiguration().get(BASE_OUTPUT_NAME);
-        return outputName;
+        return job.getConfiguration().get(BASE_OUTPUT_NAME);
     }
 
 }
