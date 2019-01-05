@@ -1,14 +1,17 @@
 package com.tomgs.hadoop.test.mapreduce;
 
 import org.apache.hadoop.conf.Configuration;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.Text;
-import org.apache.hadoop.io.compress.GzipCodec;
+import org.apache.hadoop.mapred.SplitLocationInfo;
+import org.apache.hadoop.mapreduce.InputSplit;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
 import org.apache.hadoop.mapreduce.lib.input.FileInputFormat;
+import org.apache.hadoop.mapreduce.lib.input.FileSplit;
 import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.LazyOutputFormat;
 import org.apache.hadoop.mapreduce.lib.output.MultipleOutputs;
@@ -22,7 +25,7 @@ import java.util.StringTokenizer;
  * @author tangzhongyuan
  * @create 2018-09-15 14:11
  **/
-public class WordCount_2 {
+public class WordCount2 {
 
     public static class TokenizerMapper
             extends Mapper<Object, Text, Text, IntWritable> {
@@ -30,7 +33,18 @@ public class WordCount_2 {
         private final static IntWritable one = new IntWritable(1);
         private Text word = new Text();
 
-        public void map(Object key, Text value, Context context ) throws IOException, InterruptedException {
+        public void map(Object key, Text value, Context context) throws IOException, InterruptedException {
+
+            //获取当前map路径
+            FileSplit fileSplit = (FileSplit) context.getInputSplit();
+            Path path = fileSplit.getPath();
+            String name = path.toString();
+
+            System.out.println(name);
+
+            String uriPath = path.toUri().getPath();
+            System.out.println(uriPath);
+
             StringTokenizer itr = new StringTokenizer(value.toString());
             while (itr.hasMoreTokens()) {
                 word.set(itr.nextToken());
@@ -72,16 +86,19 @@ public class WordCount_2 {
         //System.setProperty("hadoop.home.dir","E:\\hadoop-3.1.1");
 
         Configuration conf = new Configuration();
+        //设置递归目录
+        conf.setBoolean("mapreduce.input.fileinputformat.input.dir.recursive", true);
+
         String[] otherArgs = new GenericOptionsParser(conf, args).getRemainingArgs();
         if (otherArgs.length < 2) {
             System.err.println("Usage: wordcount <in> [<in>...] <out>");
             System.exit(2);
         }
         Job job = Job.getInstance(conf, "word count");
-        job.setJarByClass(WordCount_2.class);
-        job.setMapperClass(WordCount_2.TokenizerMapper.class);
-        job.setCombinerClass(WordCount_2.IntSumReducer.class);
-        job.setReducerClass(WordCount_2.IntSumReducer.class);
+        job.setJarByClass(WordCount2.class);
+        job.setMapperClass(WordCount2.TokenizerMapper.class);
+        job.setCombinerClass(WordCount2.IntSumReducer.class);
+        job.setReducerClass(WordCount2.IntSumReducer.class);
 
         //job.setNumReduceTasks(3); //输出会生成3个文件，代表3个reduce
 
@@ -91,8 +108,12 @@ public class WordCount_2 {
         for (int i = 0; i < otherArgs.length - 1; ++i) {
             FileInputFormat.addInputPath(job, new Path(otherArgs[i]));
         }
-        FileOutputFormat.setOutputPath(job,
-                new Path(otherArgs[otherArgs.length - 1]));
+        Path outPath = new Path(otherArgs[otherArgs.length - 1]);
+        FileSystem fs = FileSystem.get(conf);
+        if (fs.exists(outPath)) {
+            fs.delete(outPath, true);
+        }
+        FileOutputFormat.setOutputPath(job, outPath);
 
         //输出压缩
         //FileOutputFormat.setCompressOutput(job, true);
